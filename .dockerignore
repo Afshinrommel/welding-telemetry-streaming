@@ -1,0 +1,10 @@
+*
+!producer.py
+!consumer.py
+!dashboard.py
+!extractor.py
+!requirements.txt
+!Dockerfile
+!docker-compose.yml
+!README.md
+!volumetric_elements.jsonl

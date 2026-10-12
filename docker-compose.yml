@@ -65,6 +65,7 @@ services:
       - KAFKA_BROKER=kafka:29092
       - STREAM_INTERVAL=0.02
       - DATA_DIR=/app/result_data_welding
+      - EXTENSION_DIR=/app/result_data_welding/extension
     volumes:
       - ./result_data_welding:/app/result_data_welding
     command: python producer.py

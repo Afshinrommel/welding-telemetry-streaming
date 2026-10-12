@@ -22,7 +22,6 @@ st.set_page_config(
 # ---------------------------------------------------------
 st.markdown("""
     <style>
-        /* 1. حذف هدر مخفی سایدبار */
         [data-testid="stSidebarHeader"] {
             padding: 0px !important;
             min-height: 0px !important;
@@ -30,17 +29,14 @@ st.markdown("""
             display: none !important;
         }
         
-        /* 2. ایجاد فاصله ملایم و استاندارد از بالا */
         [data-testid="stSidebarUserContent"] {
             padding-top: 1.2rem !important;
         }
         
-        /* 3. تنظیم پدینگ کانتینر اصلی سایدبار */
         section[data-testid="stSidebar"] > div:first-child {
             padding-top: 1.2rem !important;
         }
         
-        /* 4. تنظیم فاصله عنوان */
         [data-testid="stSidebar"] h1 {
             margin-top: 0rem !important;
             padding-top: 0rem !important;
@@ -52,6 +48,7 @@ MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/")
 DB_NAME = "welding_digital_twin"
 GEO_COLLECTION = "mesh_geometry"
 TELEM_COLLECTION = "welding_telemetry"
+THERMAL_COLLECTION = "welding_thermal"
 
 METALLURGICAL_THRESHOLDS = {
     "melting_point": 1450.0,
@@ -67,6 +64,7 @@ client = get_mongo_client()
 db = client[DB_NAME]
 geo_coll = db[GEO_COLLECTION]
 telem_coll = db[TELEM_COLLECTION]
+thermal_coll = db[THERMAL_COLLECTION]
 
 @st.cache_data(ttl=60)
 def load_base_geometry():
@@ -128,6 +126,28 @@ page = st.sidebar.radio(
         "5. Cluster Health & Pipeline Infrastructure",
     ],
 )
+
+# ---------------------------------------------------------
+# Live Monitoring & Notification System
+# ---------------------------------------------------------
+times_telem = telem_coll.distinct("time")
+times_thermal = thermal_coll.distinct("time")
+global_available_times = sorted(list(set(times_telem + times_thermal)))
+
+if "previous_frame_count" not in st.session_state:
+    st.session_state.previous_frame_count = len(global_available_times)
+
+current_frame_count = len(global_available_times)
+
+if current_frame_count > st.session_state.previous_frame_count:
+    if st.session_state.previous_frame_count > 0:
+        new_frames = current_frame_count - st.session_state.previous_frame_count
+        st.toast(f"🚀 Live Update: {new_frames} new time frames added to the stream!", icon="🔔")
+    st.session_state.previous_frame_count = current_frame_count
+
+st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Scan for New Data (Live Sync)"):
+    st.rerun()
 
 # ---------------------------------------------------------
 # PAGE 1: INTERACTIVE 3D TWIN & TIMELINE SCRUBBER

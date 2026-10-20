@@ -17,6 +17,21 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown("""
+    <style>
+        .element-container:has(iframe) {
+            height: auto !important;
+        }
+        iframe {
+            height: 600px !important;
+            max-height: 80vh !important;
+        }
+        .stPlotlyChart {
+            height: auto !important;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
 # ---------------------------------------------------------
 # CSS OVERRIDE: BALANCED TOP SPACING (~4mm offset)
 # ---------------------------------------------------------
@@ -78,7 +93,7 @@ def load_base_geometry():
     return df_geo
 
 # ---------------------------------------------------------
-# Load Connectivity from JSONL File
+# Load Connectivity and Elements
 # ---------------------------------------------------------
 @st.cache_data
 def load_mesh_connectivity(filepath="volumetric_elements.jsonl", max_nodes=50000):
@@ -109,6 +124,55 @@ def load_elements_data(filepath="volumetric_elements.jsonl"):
         return elems
     except FileNotFoundError:
         return []
+
+@st.cache_data
+def get_hex8_mesh_topology(filepath="volumetric_elements.jsonl"):
+    raw_elements = load_elements_data(filepath)
+    if not raw_elements:
+        return None, None
+
+    # Correct quad face definitions based on the exact grid node layout
+    face_defs = [
+        [0, 1, 3, 2],  # Bottom face (Z=0.0)
+        [4, 6, 7, 5],  # Top face (Z=0.0005)
+        [0, 1, 5, 4],  # Front face (Y=min)
+        [2, 6, 7, 3],  # Back face (Y=max)
+        [0, 4, 6, 2],  # Left face (X=min)
+        [1, 3, 7, 5]   # Right face (X=max)
+    ]
+
+    edge_defs = [
+        (0, 1), (1, 3), (3, 2), (2, 0),
+        (4, 5), (5, 7), (7, 6), (6, 4),
+        (0, 4), (1, 5), (2, 6), (3, 7)
+    ]
+
+    face_count = {}
+    edges_set = set()
+
+    for elem in raw_elements:
+        nodes = elem["nodes"]
+        for f in face_defs:
+            orig_quad = [nodes[i] for i in f]
+            face_key = tuple(sorted(orig_quad))
+            if face_key in face_count:
+                face_count[face_key][0] += 1
+            else:
+                face_count[face_key] = [1, orig_quad]
+
+        for u, v in edge_defs:
+            p1, p2 = nodes[u], nodes[v]
+            edges_set.add(tuple(sorted((p1, p2))))
+
+    tri_i, tri_j, tri_k = [], [], []
+    for count, quad in face_count.values():
+        if count == 1:
+            # Split quad into two contiguous triangles
+            tri_i.extend([quad[0], quad[0]])
+            tri_j.extend([quad[1], quad[2]])
+            tri_k.extend([quad[2], quad[3]])
+
+    return (np.array(tri_i), np.array(tri_j), np.array(tri_k)), list(edges_set)
 
 # ---------------------------------------------------------
 # Navigation Sidebar
@@ -154,7 +218,7 @@ if st.sidebar.button("🔄 Scan for New Data (Live Sync)"):
 # ---------------------------------------------------------
 if page == "1. Live 3D Twin & Thermal-Stress Stream":
     st.markdown("### 🧊 Interactive 3D Digital Twin & Timeline Scrubber")
-    st.markdown('<p style="font-size: 1.1rem; color: #555; margin-bottom: 10px;">Scrub through welding simulation history to inspect thermal fields and transient mechanical warpage.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 1.4rem; color: #555; margin-bottom: 10px;">Scrub through welding simulation history to inspect thermal fields and transient mechanical warpage.</p>', unsafe_allow_html=True)
 
     df_mesh = load_base_geometry()
     available_times = sorted(telem_coll.distinct("time"))
@@ -188,7 +252,17 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
 
         render_mode = st.sidebar.radio(
             "Select Mesh Display Style:",
-            ["Continuous Surface (Solid Plate)", "Point Cloud (Nodal)", "Hybrid (Surface + Nodes)"]
+            [
+                "Solid 3D Block (Volume)",
+                "Point Cloud (Nodal)",
+                "Dual Shell (Top/Bottom Surfaces)"
+            ]
+        )
+
+        show_wireframe = st.sidebar.checkbox(
+            "Show 3D Element Edges (Wireframe)",
+            value=False,
+            help="Render mesh element boundaries with subtle lines"
         )
 
         color_mode = st.sidebar.radio(
@@ -325,22 +399,43 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                 color_vals = states
                 colorscale = "Viridis"
 
-            df_temp = pd.DataFrame({
-                "orig_idx": np.arange(n_nodes),
-                "rx": np.round(df_mesh["x"].values, 5),
-                "ry": np.round(df_mesh["y"].values, 5),
-                "z": df_mesh["z"].values
-            })
-            
-            top_indices = df_temp.sort_values("z").groupby(["rx", "ry"])["orig_idx"].last().values
-            bot_indices = df_temp.sort_values("z").groupby(["rx", "ry"])["orig_idx"].first().values
-            
-            top_indices = np.sort(top_indices)
-            bot_indices = np.sort(bot_indices)
-
             fig_traces = []
 
-            if render_mode in ["Continuous Surface (Solid Plate)", "Hybrid (Surface + Nodes)"]:
+            if render_mode == "Solid 3D Block (Volume)":
+                tri_indices, _ = get_hex8_mesh_topology()
+                if tri_indices is not None:
+                    ti, tj, tk = tri_indices
+                    solid_block = go.Mesh3d(
+                     x=curr_x,
+                     y=curr_y,
+                     z=curr_z,
+                     i=ti,
+                     j=tj,
+                     k=tk,
+                     intensity=color_vals,
+                     colorscale=colorscale,
+                     colorbar=dict(title=color_mode),
+                     opacity=1.0,
+                    flatshading=True,  # این گزینه سایه لبه‌های ۹۰ درجه را حذف و تیز می‌کند
+                    lighting=dict(ambient=0.85, diffuse=0.6, roughness=0.5, specular=0.1),
+                    name="Solid 3D Block",
+                     )
+                    fig_traces.append(solid_block)
+
+            elif render_mode == "Dual Shell (Top/Bottom Surfaces)":
+                df_temp = pd.DataFrame({
+                    "orig_idx": np.arange(n_nodes),
+                    "rx": np.round(df_mesh["x"].values, 5),
+                    "ry": np.round(df_mesh["y"].values, 5),
+                    "z": df_mesh["z"].values
+                })
+                
+                top_indices = df_temp.sort_values("z").groupby(["rx", "ry"])["orig_idx"].last().values
+                bot_indices = df_temp.sort_values("z").groupby(["rx", "ry"])["orig_idx"].first().values
+                
+                top_indices = np.sort(top_indices)
+                bot_indices = np.sort(bot_indices)
+
                 surface_top = go.Mesh3d(
                     x=curr_x[top_indices],
                     y=curr_y[top_indices],
@@ -349,7 +444,7 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                     colorscale=colorscale,
                     colorbar=dict(title=color_mode),
                     delaunayaxis='z',
-                    opacity=1.0 if render_mode == "Continuous Surface (Solid Plate)" else 0.85,
+                    opacity=1.0,
                     flatshading=False,
                     lighting=dict(ambient=0.8, diffuse=0.8, roughness=0.2, specular=0.3),
                     name="Top Surface"
@@ -371,17 +466,17 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                 )
                 fig_traces.append(surface_bot)
 
-            if render_mode in ["Point Cloud (Nodal)", "Hybrid (Surface + Nodes)"]:
+            elif render_mode == "Point Cloud (Nodal)":
                 point_cloud = go.Scatter3d(
                     x=curr_x,
                     y=curr_y,
                     z=curr_z,
                     mode="markers",
                     marker=dict(
-                        size=2.5 if render_mode == "Point Cloud (Nodal)" else 1.5,
+                        size=2.5,
                         color=color_vals,
                         colorscale=colorscale,
-                        colorbar=dict(title=color_mode) if render_mode == "Point Cloud (Nodal)" else None,
+                        colorbar=dict(title=color_mode),
                         opacity=0.9
                     ),
                     text=[f"Node: {i}<br>Z: {z:.4f}m" for i, z in enumerate(curr_z)],
@@ -389,13 +484,35 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                 )
                 fig_traces.append(point_cloud)
 
+            if show_wireframe:
+                _, edges_list = get_hex8_mesh_topology()
+                if edges_list:
+                    edge_x, edge_y, edge_z = [], [], []
+                    for n1, n2 in edges_list:
+                        if n1 < n_nodes and n2 < n_nodes:
+                            edge_x.extend([curr_x[n1], curr_x[n2], None])
+                            edge_y.extend([curr_y[n1], curr_y[n2], None])
+                            edge_z.extend([curr_z[n1], curr_z[n2], None])
+
+                    wireframe_trace = go.Scatter3d(
+                        x=edge_x,
+                        y=edge_y,
+                        z=edge_z,
+                        mode="lines",
+                        line=dict(color="rgba(100, 100, 100, 0.25)", width=1.2),
+                        hoverinfo="none",
+                        name="Element Edges"
+                    )
+                    fig_traces.append(wireframe_trace)
+
             fig_3d = go.Figure(data=fig_traces)
             fig_3d.update_layout(
                 scene=dict(
                     xaxis_title="X (m) [Length]",
                     yaxis_title="Y (m) [Width]",
                     zaxis_title="Z (m) [Thickness + Warpage]",
-                    aspectmode="data"
+                    aspectmode="manual",
+                    aspectratio=dict(x=1.2, y=1.0, z=0.04)
                 ),
                 margin=dict(l=0, r=0, b=0, t=10),
                 height=720
@@ -478,43 +595,53 @@ elif page == "2. Thermomechanical Field Deep Dive":
                 return nodal_arr
             return np.zeros(n_nodes)
 
-        history_data = []
-        for t in available_times:
-            frame = telem_coll.find_one({"time": t})
-            if frame:
-                temps_raw = np.array(frame.get("temperatures", []))
-                stresses_raw = np.array(frame.get("von_mises_stress", [])) / 1e6
+        col_chart1, col_chart2 = st.columns(2)
+        with col_chart1:
+            st.markdown(f"#### 🌡️ Temperature History (Node {closest_node_idx})")
+            telem_docs = list(telem_coll.find({}, {"time": 1, "temperatures": 1}).sort("time", 1))
+            thermal_rows = []
+            for doc in telem_docs:
+                t_val = doc.get("time", 0.0)
+                temps_raw = np.array(doc.get("temperatures", []))
+                temp_val = 0.0
+                if len(temps_raw) > 0:
+                    node_idx = closest_node_idx if (closest_node_idx is not None and 0 <= closest_node_idx < len(temps_raw)) else 0
+                    temp_val = float(temps_raw[node_idx])
+                thermal_rows.append({"Time (s)": t_val, "Temperature (°C)": temp_val})
+            
+            df_thermal_raw = pd.DataFrame(thermal_rows)
+            if not df_thermal_raw.empty:
+                st.line_chart(df_thermal_raw.set_index("Time (s)")["Temperature (°C)"])
+            else:
+                st.warning("No thermal history records found.")
 
-                nodal_temps = map_to_nodes_p2(temps_raw)
-                temp_val = float(nodal_temps[closest_node_idx]) if closest_node_idx < len(nodal_temps) else 0.0
+        with col_chart2:
+            st.markdown(f"#### ⚡ Von Mises Stress History (Element {selected_elem + 1 if selected_elem is not None else 'N/A'})")
+            telem_docs = list(telem_coll.find({}, {"time": 1, "von_mises_stress": 1}).sort("time", 1))
+            stress_rows = []
+            for doc in telem_docs:
+                t_val = doc.get("time", 0.0)
+                stresses = np.array(doc.get("von_mises_stress", [])) / 1e6
+                if selected_elem is not None and len(stresses) > 0 and selected_elem < len(stresses):
+                    s_val = float(stresses[selected_elem])
+                else:
+                    s_val = float(np.max(stresses)) if len(stresses) > 0 else 0.0
+                stress_rows.append({"Time (s)": t_val, "Von Mises Stress (MPa)": s_val})
+            
+            df_stress_raw = pd.DataFrame(stress_rows)
+            if not df_stress_raw.empty:
+                st.line_chart(df_stress_raw.set_index("Time (s)")["Von Mises Stress (MPa)"])
+            else:
+                st.warning("No stress history records found.")
 
-                stress_val = 0.0
-                if selected_elem is not None and len(stresses_raw) > 0:
-                    if selected_elem < len(stresses_raw):
-                        stress_val = float(stresses_raw[selected_elem])
-
-                history_data.append({
-                    "Time (s)": t,
-                    "Temperature (°C)": temp_val,
-                    "Von Mises Stress (MPa)": stress_val
-                })
-
-        if history_data:
-            df_history = pd.DataFrame(history_data)
-
-            col_chart1, col_chart2 = st.columns(2)
-            with col_chart1:
-                st.markdown(f"#### 🌡️ Temperature History (Node {closest_node_idx})")
-                st.line_chart(df_history.set_index("Time (s)")["Temperature (°C)"])
-
-            with col_chart2:
-                st.markdown(f"#### ⚡ Von Mises Stress History (Element {selected_elem + 1 if selected_elem is not None else 'N/A'})")
-                st.line_chart(df_history.set_index("Time (s)")["Von Mises Stress (MPa)"])
-
-            with st.expander("📋 View Raw History Data Table"):
-                st.dataframe(df_history, use_container_width=True)
-        else:
-            st.warning("No telemetry time-history records found.")
+        st.markdown("---")
+        col_tbl1, col_tbl2 = st.columns(2)
+        with col_tbl1:
+            with st.expander("📋 View Thermal Raw History Data"):
+                st.dataframe(df_thermal_raw, use_container_width=True)
+        with col_tbl2:
+            with st.expander("📋 View Stress Raw History Data"):
+                st.dataframe(df_stress_raw, use_container_width=True)
 
 # ---------------------------------------------------------
 # PAGE 3: PLASTICITY, DEFORMATION & STRESS REPORT
@@ -568,7 +695,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                         report_rows.append({
                             "Rank": rank,
                             "Type": "Element",
-                            "ID": elements_data[idx]["element_id"],
+                            "ID": str(elements_data[idx]["element_id"]),
                             "Value (MPa)": f"{val:.2f}",
                             "X (m)": f"{cx:.4f}",
                             "Y (m)": f"{cy:.4f}",
@@ -580,7 +707,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                         report_rows.append({
                             "Rank": rank,
                             "Type": "Node",
-                            "ID": node_id,
+                            "ID": str(node_id),
                             "Value (MPa)": f"{val:.2f}",
                             "X (m)": f"{float(row.get('x', 0)):.4f}",
                             "Y (m)": f"{float(row.get('y', 0)):.4f}",
@@ -604,7 +731,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                     report_rows.append({
                         "Rank": rank,
                         "Type": "Node",
-                        "ID": int(node_id),
+                        "ID": str(int(node_id)),
                         "Displacement (m)": f"{val:.6f}",
                         "Displacement (mm)": f"{val * 1000:.2f}",
                         "X (m)": f"{float(row.get('x', 0)):.4f}",
@@ -640,7 +767,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                         report_rows.append({
                             "Rank": rank,
                             "Type": "Element",
-                            "ID": elements_data[idx]["element_id"],
+                            "ID": str(elements_data[idx]["element_id"]),
                             "PEEQ Value": f"{val:.4f}",
                             "X (m)": f"{cx:.4f}",
                             "Y (m)": f"{cy:.4f}",
@@ -652,7 +779,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                         report_rows.append({
                             "Rank": rank,
                             "Type": "Node",
-                            "ID": node_id,
+                            "ID": str(int(node_id)),
                             "PEEQ Value": f"{val:.4f}",
                             "X (m)": f"{float(row.get('x', 0)):.4f}",
                             "Y (m)": f"{float(row.get('y', 0)):.4f}",
@@ -690,7 +817,6 @@ elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
             stresses_raw = np.array(frame.get("von_mises_stress", [])) / 1e6
             displacements_raw = np.array(frame.get("displacement_3d", []))
 
-            # Mapping temperatures to nodes
             def map_to_nodes_p4(raw_array, is_elem=False):
                 if len(raw_array) == 0:
                     return np.zeros(n_nodes)
@@ -723,11 +849,11 @@ elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
             col3.metric("Max Deflection", f"{(np.max(np.abs(displacements[:, 2]))*1000):.2f} mm" if len(displacements) > 0 else "N/A")
 
             st.markdown("---")
-            st.subheader(f"🔥 Top Hottest Nodes Summary at t = {selected_time:.3f} s (Sorted by Temperature)")
+            st.subheader(f"🔥 Top 10 Hottest Nodes Summary at t = {selected_time:.3f} s")
 
             if len(temps) > 0:
                 sorted_temp_indices = np.argsort(temps)[::-1]
-                top_indices = sorted_temp_indices[:10]  # Top 10 hottest nodes
+                top_indices = sorted_temp_indices[:10]
 
                 report_rows = []
                 for rank, node_id in enumerate(top_indices, 1):
@@ -738,7 +864,7 @@ elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
 
                     report_rows.append({
                         "Rank": rank,
-                        "Node ID": int(node_id),
+                        "Node ID": str(int(node_id)),
                         "Temperature (°C)": f"{t_val:.2f}",
                         "Stress (MPa)": f"{s_val:.2f}",
                         "Displacement Z (m)": f"{d_val:.6f}",

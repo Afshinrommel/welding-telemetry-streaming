@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>
+<Xdmf Version="3.0" xmlns:xi="https://www.w3.org/2001/XInclude">
+  <Domain>
+    <Grid Name="Grid" GridType="Uniform">
+      <Topology TopologyType="Hexahedron" NumberOfElements="13320" NodesPerElement="8">
+        <DataItem Dimensions="13320 8" NumberType="Int" Format="HDF">mechanical_elastoplastic.h5:/Mesh/Grid/topology</DataItem>
+      </Topology>
+      <Geometry GeometryType="XYZ">
+        <DataItem Dimensions="16226 3" Format="HDF">mechanical_elastoplastic.h5:/Mesh/Grid/geometry</DataItem>
+      </Geometry>
+    </Grid>
+    <Grid Name="Displacement" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="Displacement" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="Displacement" AttributeType="Vector" Center="Node">
+          <DataItem Dimensions="16226 3" Format="HDF">mechanical_elastoplastic.h5:/Function/Displacement/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="Displacement" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="Displacement" AttributeType="Vector" Center="Node">
+          <DataItem Dimensions="16226 3" Format="HDF">mechanical_elastoplastic.h5:/Function/Displacement/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="Displacement" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="Displacement" AttributeType="Vector" Center="Node">
+          <DataItem Dimensions="16226 3" Format="HDF">mechanical_elastoplastic.h5:/Function/Displacement/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="Temperature" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="Temperature" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="Temperature" AttributeType="Scalar" Center="Node">
+          <DataItem Dimensions="16226 1" Format="HDF">mechanical_elastoplastic.h5:/Function/Temperature/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="Temperature" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="Temperature" AttributeType="Scalar" Center="Node">
+          <DataItem Dimensions="16226 1" Format="HDF">mechanical_elastoplastic.h5:/Function/Temperature/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="Temperature" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="Temperature" AttributeType="Scalar" Center="Node">
+          <DataItem Dimensions="16226 1" Format="HDF">mechanical_elastoplastic.h5:/Function/Temperature/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="EquivalentPlasticStrain" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="EquivalentPlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="EquivalentPlasticStrain" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/EquivalentPlasticStrain/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="EquivalentPlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="EquivalentPlasticStrain" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/EquivalentPlasticStrain/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="EquivalentPlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="EquivalentPlasticStrain" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/EquivalentPlasticStrain/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="PlasticStrain" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="PlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="PlasticStrain" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/PlasticStrain/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="PlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="PlasticStrain" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/PlasticStrain/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="PlasticStrain" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="PlasticStrain" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/PlasticStrain/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="StressTensor" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="StressTensor" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="StressTensor" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/StressTensor/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="StressTensor" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="StressTensor" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/StressTensor/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="StressTensor" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="StressTensor" AttributeType="Tensor" Center="Cell">
+          <DataItem Dimensions="13320 9" Format="HDF">mechanical_elastoplastic.h5:/Function/StressTensor/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="VonMisesStress" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="VonMisesStress" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="VonMisesStress" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/VonMisesStress/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="VonMisesStress" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="VonMisesStress" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/VonMisesStress/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="VonMisesStress" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="VonMisesStress" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/VonMisesStress/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+    <Grid Name="MaterialState" GridType="Collection" CollectionType="Temporal">
+      <Grid Name="MaterialState" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="0.02" />
+        <Attribute Name="MaterialState" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/MaterialState/0_02</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="MaterialState" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="2" />
+        <Attribute Name="MaterialState" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/MaterialState/2</DataItem>
+        </Attribute>
+      </Grid>
+      <Grid Name="MaterialState" GridType="Uniform">
+        <xi:include xpointer="xpointer(/Xdmf/Domain/Grid[@GridType='Uniform'][1]/*[self::Topology or self::Geometry])" />
+        <Time Value="4" />
+        <Attribute Name="MaterialState" AttributeType="Scalar" Center="Cell">
+          <DataItem Dimensions="13320 1" Format="HDF">mechanical_elastoplastic.h5:/Function/MaterialState/4</DataItem>
+        </Attribute>
+      </Grid>
+    </Grid>
+  </Domain>
+</Xdmf>

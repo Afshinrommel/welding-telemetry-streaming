@@ -336,6 +336,18 @@ Dataset (100–110 s simulation - place in result_data_welding/extension/):
 
 https://drive.google.com/drive/folders/1kLc61-AOx-XbLDPz5LNR2HHdLOIofLvM?usp=drive_link
 
+
+## Next Steps: Data Pipeline Integration
+
+Once the simulation is complete and the results are downloaded, the output files (specifically `.jsonl` and `.json` files) are ready to be ingested by the Kafka streaming pipeline.
+
+To integrate these results with the real-time telemetry dashboard:
+1. Navigate to the root directory of the main streaming repository: [welding-telemetry-streaming](https://github.com/Afshinrommel/welding-telemetry-streaming/tree/main).
+2. Ensure a directory named `result_data_welding/` exists at the root level.
+3. Move all generated `.jsonl` and `.json` files from your Colab `results/` folder into this `result_data_welding/` directory.
+
+The Dockerized Kafka producer is pre-configured to automatically mount and stream data directly from this folder.
+
 ## Repository Structure
 
 The following is an illustrative structure of the simulation project. Actual filenames may differ depending on the current repository contents.

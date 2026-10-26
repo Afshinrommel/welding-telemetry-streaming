@@ -162,7 +162,8 @@ import requests
 destination = "/content/drive/MyDrive/welding_simulation"
 
 url = (
-'https://github.com/Afshinrommel/welding-telemetry-streaming/tree/00e12853024cebcd5e8d06ed21115a763a0cfa18/welding_simulation'
+    "https://github.com/Afshinrommel/"
+    "welding-telemetry-streaming/archive/refs/heads/main.zip"
 )
 
 os.makedirs(destination, exist_ok=True)

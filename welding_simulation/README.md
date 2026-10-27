@@ -6,7 +6,6 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 
 ## Table of Contents
 
-## Table of Contents
 
 - [Overview](#overview)
 - [Physical Model](#physical-model)
@@ -20,7 +19,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Full-Scale Simulation Results](#full-scale-simulation-results)
 - [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
 - [Repository Structure](#repository-structure)
-- [License](#license)
+
 
 ## Overview
 
@@ -70,7 +69,7 @@ The mechanical model uses transient J2 von Mises elastoplasticity with linear is
 
 The steel density is defined as:
 
-rho = 7850 kg/m^3
+**Density:** 7850 kg/m³
 
 The following material properties are modeled as temperature-dependent:
 
@@ -373,6 +372,4 @@ welding-telemetry-streaming/
 └── README.md
 ```
 
-## License
 
-No license information has been specified in this README. Add a `LICENSE` file and update this section before distributing the project if you intend to grant others permission to use, modify, or redistribute the code.

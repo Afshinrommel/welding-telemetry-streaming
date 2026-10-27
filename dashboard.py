@@ -96,7 +96,7 @@ def load_base_geometry():
 # Load Connectivity and Elements
 # ---------------------------------------------------------
 @st.cache_data
-def load_mesh_connectivity(filepath="volumetric_elements.jsonl", max_nodes=50000):
+def load_mesh_connectivity(filepath="result_data_welding/volumetric_elements.jsonl", max_nodes=50000):
     node_to_elems = {i: [] for i in range(max_nodes)}
     try:
         with open(filepath, 'r') as f:
@@ -111,7 +111,7 @@ def load_mesh_connectivity(filepath="volumetric_elements.jsonl", max_nodes=50000
         return None
 
 @st.cache_data
-def load_elements_data(filepath="volumetric_elements.jsonl"):
+def load_elements_data(filepath="result_data_welding/volumetric_elements.jsonl"):
     elems = []
     try:
         with open(filepath, 'r') as f:
@@ -126,7 +126,7 @@ def load_elements_data(filepath="volumetric_elements.jsonl"):
         return []
 
 @st.cache_data
-def get_hex8_mesh_topology(filepath="volumetric_elements.jsonl"):
+def get_hex8_mesh_topology(filepath="result_data_welding/volumetric_elements.jsonl"):
     raw_elements = load_elements_data(filepath)
     if not raw_elements:
         return None, None

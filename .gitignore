@@ -1,6 +1,8 @@
-result_data_welding/
-
-
+.ipynb_checkpoints/
+__pycache__/
+*.h5
+*.xdmf
+*.jsonl
 check_keys.py
 check_mesh.py
 check_temp.py

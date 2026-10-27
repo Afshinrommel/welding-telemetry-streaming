@@ -6,6 +6,8 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 
 ## Table of Contents
 
+## Table of Contents
+
 - [Overview](#overview)
 - [Physical Model](#physical-model)
 - [Material Properties](#material-properties)
@@ -16,6 +18,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Results and Output Files](#results-and-output-files)
 - [Simulation Configuration](#simulation-configuration)
 - [Full-Scale Simulation Results](#full-scale-simulation-results)
+- [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
 - [Repository Structure](#repository-structure)
 - [License](#license)
 

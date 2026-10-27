@@ -632,7 +632,11 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                         k=tk,
                         intensity=color_vals,
                         colorscale=colorscale,
-                        colorbar=dict(title=color_mode),
+                        colorbar=dict(
+    title=dict(text=color_mode, font=dict(size=18, family="Arial", color="black")),
+    tickfont=dict(size=16, family="Arial", color="black"),
+    thickness=25,
+),
                         opacity=1.0,
                         flatshading=True,
                         lighting=dict(ambient=0.85, diffuse=0.6, roughness=0.5, specular=0.1),
@@ -660,7 +664,11 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                     z=curr_z[top_indices],
                     intensity=color_vals[top_indices],
                     colorscale=colorscale,
-                    colorbar=dict(title=color_mode),
+                    colorbar=dict(
+    title=dict(text=color_mode, font=dict(size=18, family="Arial", color="black")),
+    tickfont=dict(size=16, family="Arial", color="black"),
+    thickness=25,
+),
                     delaunayaxis='z',
                     opacity=1.0,
                     flatshading=False,
@@ -694,7 +702,11 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                         size=2.5,
                         color=color_vals,
                         colorscale=colorscale,
-                        colorbar=dict(title=color_mode),
+                        colorbar=dict(
+             title=dict(text=color_mode, font=dict(size=18, family="Arial", color="black")),
+             tickfont=dict(size=16, family="Arial", color="black"),
+             thickness=25,
+),
                         opacity=0.9
                     ),
                     text=[f"Node: {i}<br>Z: {z:.4f}m" for i, z in enumerate(curr_z)],

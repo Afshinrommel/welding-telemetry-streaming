@@ -17,23 +17,8 @@ st.set_page_config(
     layout="wide",
 )
 
-st.markdown("""
-    <style>
-        .element-container:has(iframe) {
-            height: auto !important;
-        }
-        iframe {
-            height: 600px !important;
-            max-height: 80vh !important;
-        }
-        .stPlotlyChart {
-            height: auto !important;
-        }
-    </style>
-""", unsafe_allow_html=True)
-
 # ---------------------------------------------------------
-# CSS OVERRIDE: BALANCED TOP SPACING (~4mm offset)
+# CSS OVERRIDE: BALANCED TOP SPACING, UI LABELS & HTML TABLES
 # ---------------------------------------------------------
 st.markdown("""
     <style>
@@ -42,6 +27,64 @@ st.markdown("""
             min-height: 0px !important;
             height: 0px !important;
             display: none !important;
+        }
+
+        /* Slider thumb value (the red number) and min/max tick numbers */
+        [data-testid="stSlider"] [data-testid="stThumbValue"] {
+            font-size: 1.25rem !important;
+            font-weight: bold !important;
+        }
+        [data-testid="stSlider"] [data-testid="stTickBar"] div,
+        [data-testid="stSlider"] [data-testid="stTickBarMin"],
+        [data-testid="stSlider"] [data-testid="stTickBarMax"] {
+            font-size: 1.1rem !important;
+            color: #333 !important;
+            font-weight: 500 !important;
+        }
+
+        /* Metric card labels and values */
+        [data-testid="stMetricLabel"] p {
+            font-size: 1.15rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+        [data-testid="stMetricValue"] div {
+            font-size: 1.8rem !important;
+            font-weight: bold !important;
+        }
+
+        /* Increase font size and padding for expander headers */
+        [data-testid="stExpander"] details summary p {
+            font-size: 1.2rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+        [data-testid="stExpander"] details summary svg {
+            width: 1.3rem !important;
+            height: 1.3rem !important;
+        }
+
+        /* Selectbox value inside the box */
+        div[data-baseweb="select"] div {
+            font-size: 1.2rem !important;
+        }
+
+        /* Selectbox dropdown popup menu items */
+        ul[role="listbox"] li,
+        ul[role="listbox"] div {
+            font-size: 1.2rem !important;
+            line-height: 1.8 !important;
+        }
+
+        /* Increase font size and padding for expander headers */
+        [data-testid="stExpander"] details summary p {
+            font-size: 1.2rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+        [data-testid="stExpander"] details summary svg {
+            width: 1.3rem !important;
+            height: 1.3rem !important;
         }
         
         [data-testid="stSidebarUserContent"] {
@@ -56,14 +99,189 @@ st.markdown("""
             margin-top: 0rem !important;
             padding-top: 0rem !important;
         }
+        
+        /* Increase font size for Streamlit alert boxes (info, success, warning) */
+        [data-testid="stAlert"] div[role="alert"] p,
+        [data-testid="stAlert"] div[role="alert"] span,
+        [data-testid="stAlert"] code {
+            font-size: 1.15rem !important;
+            line-height: 1.6 !important;
+        }
+
+        /* Increase font size for number inputs, selectboxes, and sliders */
+        [data-testid="stNumberInput"] label p,
+        [data-testid="stSelectbox"] label p,
+        [data-testid="stSlider"] label p {
+            font-size: 1.15rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+
+        [data-testid="stNumberInput"] input {
+            font-size: 1.25rem !important;
+            padding: 8px !important;
+        }
+
+        /* Increase font size for selectbox options */
+        /* Selectbox value inside input box */
+        div[data-baseweb="select"] * {
+            font-size: 1.35rem !important;
+            font-weight: 500 !important;
+            color: #262730 !important;
+        }
+
+        /* Selectbox dropdown popup menu items */
+        div[data-baseweb="popover"] li,
+        div[data-baseweb="popover"] li * {
+            font-size: 1.35rem !important;
+            font-weight: 500 !important;
+            line-height: 1.8 !important;
+            color: #262730 !important;
+        }
+        
+        /* Custom HTML Table Styling for Large, Readable Fonts */
+        .custom-html-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1.25rem !important;
+            font-family: Arial, sans-serif;
+            margin-bottom: 1rem;
+        }
+        .custom-html-table th {
+            background-color: #f0f2f6 !important;
+            color: #111 !important;
+            font-size: 1.3rem !important;
+            font-weight: bold !important;
+            padding: 14px 12px !important;
+            text-align: left;
+            border-bottom: 2px solid #b0b0b0 !important;
+        }
+        .custom-html-table td {
+            font-size: 1.25rem !important;
+            font-weight: 500 !important;
+            padding: 12px 12px !important;
+            border-bottom: 1px solid #dcdcdc !important;
+            color: #262730 !important;
+        }
+        .custom-html-table tr:hover {
+            background-color: #f1f3f6 !important;
+        }
+
+        /* Slider and Select-Slider Labels */
+        [data-testid="stSlider"] label,
+        [data-testid="stSlider"] label p {
+            font-size: 1.25rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+
+        /* Value above the thumb (the red number) */
+        div[data-baseweb="slider"] div[role="slider"] div,
+        div[data-baseweb="slider"] div[aria-hidden="true"],
+        [data-testid="stSlider"] div[data-testid="stThumbValue"] {
+            font-size: 1.35rem !important;
+            font-weight: bold !important;
+            line-height: 1.5 !important;
+        }
+
+        /* Min, Max and Tick values below the track */
+        div[data-baseweb="slider"] > div:last-child div,
+        [data-testid="stSlider"] [data-testid="stTickBar"] div,
+        [data-testid="stSlider"] [data-testid="stTickBarMin"],
+        [data-testid="stSlider"] [data-testid="stTickBarMax"] {
+            font-size: 1.2rem !important;
+            color: #262730 !important;
+            font-weight: 600 !important;
+        }
+
+        /* Streamlit Alerts (st.success, st.info, st.warning) Complete Override */
+        [data-testid="stAlert"] {
+            padding: 14px 18px !important;
+        }
+        [data-testid="stAlert"] p,
+        [data-testid="stAlert"] span,
+        [data-testid="stAlert"] div {
+            font-size: 1.4rem !important;
+            line-height: 1.7 !important;
+            font-weight: 500 !important;
+        }
+        [data-testid="stAlert"] code {
+            font-size: 1.35rem !important;
+            font-weight: bold !important;
+        }
+
+        /* Increase font size for number inputs and labels */
+        [data-testid="stNumberInput"] label,
+        [data-testid="stNumberInput"] label p {
+            font-size: 1.35rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+        [data-testid="stNumberInput"] input {
+            font-size: 1.4rem !important;
+            font-weight: 600 !important;
+            padding: 10px !important;
+        }
+        [data-testid="stNumberInput"] button {
+            transform: scale(1.15) !important;
+        }
+
+        /* Sidebar subtitle / caption */
+        section[data-testid="stSidebar"] p {
+            font-size: 1.3rem !important;
+            line-height: 1.6 !important;
+        }
+
+        /* Radio button labels & option text */
+        /* Radio button labels & all option text */
+        [data-testid="stRadio"] label,
+        [data-testid="stRadio"] label p,
+        [data-testid="stRadio"] div[role="radiogroup"] label,
+        [data-testid="stRadio"] div[role="radiogroup"] label * {
+            font-size: 1.35rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+            line-height: 1.5 !important;
+        }
+
+        /* Checkbox label */
+        [data-testid="stCheckbox"] label,
+        [data-testid="stCheckbox"] label p {
+            font-size: 1.35rem !important;
+            font-weight: 600 !important;
+            color: #262730 !important;
+        }
+
+        /* Sidebar action button */
+        section[data-testid="stSidebar"] button,
+        section[data-testid="stSidebar"] button p {
+            font-size: 1.3rem !important;
+            font-weight: bold !important;
+            padding: 4px 8px !important;
+        }
     </style>
 """, unsafe_allow_html=True)
+
+def render_html_table(df):
+    if df is None or df.empty:
+        st.warning("No data available to display.")
+        return
+    html_str = df.to_html(classes="custom-html-table", index=True, border=0, escape=False)
+    st.markdown(f'<div style="max-height: 500px; overflow-y: auto;">{html_str}</div>', unsafe_allow_html=True)
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/")
 DB_NAME = "welding_digital_twin"
 GEO_COLLECTION = "mesh_geometry"
 TELEM_COLLECTION = "welding_telemetry"
 THERMAL_COLLECTION = "welding_thermal"
+
+DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+if not os.path.exists(DATA_DIR):
+    if os.path.exists("result_data_welding"):
+        DATA_DIR = "result_data_welding"
+    else:
+        DATA_DIR = "."
+MESH_FILE_PATH = os.path.join(DATA_DIR, "volumetric_elements.jsonl")
 
 METALLURGICAL_THRESHOLDS = {
     "melting_point": 1450.0,
@@ -96,7 +314,7 @@ def load_base_geometry():
 # Load Connectivity and Elements
 # ---------------------------------------------------------
 @st.cache_data
-def load_mesh_connectivity(filepath="result_data_welding/volumetric_elements.jsonl", max_nodes=50000):
+def load_mesh_connectivity(filepath=MESH_FILE_PATH, max_nodes=50000):
     node_to_elems = {i: [] for i in range(max_nodes)}
     try:
         with open(filepath, 'r') as f:
@@ -111,7 +329,7 @@ def load_mesh_connectivity(filepath="result_data_welding/volumetric_elements.jso
         return None
 
 @st.cache_data
-def load_elements_data(filepath="result_data_welding/volumetric_elements.jsonl"):
+def load_elements_data(filepath=MESH_FILE_PATH):
     elems = []
     try:
         with open(filepath, 'r') as f:
@@ -126,19 +344,18 @@ def load_elements_data(filepath="result_data_welding/volumetric_elements.jsonl")
         return []
 
 @st.cache_data
-def get_hex8_mesh_topology(filepath="result_data_welding/volumetric_elements.jsonl"):
+def get_hex8_mesh_topology(filepath=MESH_FILE_PATH):
     raw_elements = load_elements_data(filepath)
     if not raw_elements:
         return None, None
 
-    # Correct quad face definitions based on the exact grid node layout
     face_defs = [
-        [0, 1, 3, 2],  # Bottom face (Z=0.0)
-        [4, 6, 7, 5],  # Top face (Z=0.0005)
-        [0, 1, 5, 4],  # Front face (Y=min)
-        [2, 6, 7, 3],  # Back face (Y=max)
-        [0, 4, 6, 2],  # Left face (X=min)
-        [1, 3, 7, 5]   # Right face (X=max)
+        [0, 1, 3, 2],
+        [4, 6, 7, 5],
+        [0, 1, 5, 4],
+        [2, 6, 7, 3],
+        [0, 4, 6, 2],
+        [1, 3, 7, 5]
     ]
 
     edge_defs = [
@@ -167,7 +384,6 @@ def get_hex8_mesh_topology(filepath="result_data_welding/volumetric_elements.jso
     tri_i, tri_j, tri_k = [], [], []
     for count, quad in face_count.values():
         if count == 1:
-            # Split quad into two contiguous triangles
             tri_i.extend([quad[0], quad[0]])
             tri_j.extend([quad[1], quad[2]])
             tri_k.extend([quad[2], quad[3]])
@@ -178,7 +394,7 @@ def get_hex8_mesh_topology(filepath="result_data_welding/volumetric_elements.jso
 # Navigation Sidebar
 # ---------------------------------------------------------
 st.sidebar.title("🔥 3D Welding Digital Twin")
-st.sidebar.caption("High-Fidelity Thermomechanical Ingestion Pipeline (Kafka / MongoDB)")
+st.sidebar.markdown('<p style="font-size: 1.05rem; color: #444; margin-top: -10px;">High-Fidelity Thermomechanical Ingestion Pipeline (Kafka / MongoDB)</p>', unsafe_allow_html=True)
 
 page = st.sidebar.radio(
     "Select Telemetry View:",
@@ -200,7 +416,8 @@ global_available_times = sorted(list(set(times_telem + times_thermal)))
 
 if "previous_frame_count" not in st.session_state:
     st.session_state.previous_frame_count = len(global_available_times)
-
+if "color_mode" not in st.session_state:
+    st.session_state.color_mode = "Temperature Field (°C)"
 current_frame_count = len(global_available_times)
 
 if current_frame_count > st.session_state.previous_frame_count:
@@ -211,14 +428,14 @@ if current_frame_count > st.session_state.previous_frame_count:
 
 st.sidebar.markdown("---")
 if st.sidebar.button("🔄 Scan for New Data (Live Sync)"):
-    st.rerun()
+    st.toast("🔄 Data synchronized with MongoDB!", icon="✅")
 
 # ---------------------------------------------------------
 # PAGE 1: INTERACTIVE 3D TWIN & TIMELINE SCRUBBER
 # ---------------------------------------------------------
 if page == "1. Live 3D Twin & Thermal-Stress Stream":
     st.markdown("### 🧊 Interactive 3D Digital Twin & Timeline Scrubber")
-    st.markdown('<p style="font-size: 1.4rem; color: #555; margin-bottom: 10px;">Scrub through welding simulation history to inspect thermal fields and transient mechanical warpage.</p>', unsafe_allow_html=True)
+    st.markdown('<p style="font-size: 1.25rem; color: #333; margin-bottom: 15px;">Scrub through welding simulation history to inspect thermal fields and transient mechanical warpage.</p>', unsafe_allow_html=True)
 
     df_mesh = load_base_geometry()
     available_times = sorted(telem_coll.distinct("time"))
@@ -267,7 +484,8 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
 
         color_mode = st.sidebar.radio(
             "Select 3D Color Contour:",
-            ["Temperature Field (°C)", "Von Mises Stress (MPa)", "Material State (Chewing Gum)"]
+            ["Temperature Field (°C)", "Von Mises Stress (MPa)", "Material State (Chewing Gum)"],
+            key="color_mode"
         )
 
         current_frame = telem_coll.find_one({"time": selected_time})
@@ -406,20 +624,20 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
                 if tri_indices is not None:
                     ti, tj, tk = tri_indices
                     solid_block = go.Mesh3d(
-                     x=curr_x,
-                     y=curr_y,
-                     z=curr_z,
-                     i=ti,
-                     j=tj,
-                     k=tk,
-                     intensity=color_vals,
-                     colorscale=colorscale,
-                     colorbar=dict(title=color_mode),
-                     opacity=1.0,
-                    flatshading=True,  # این گزینه سایه لبه‌های ۹۰ درجه را حذف و تیز می‌کند
-                    lighting=dict(ambient=0.85, diffuse=0.6, roughness=0.5, specular=0.1),
-                    name="Solid 3D Block",
-                     )
+                        x=curr_x,
+                        y=curr_y,
+                        z=curr_z,
+                        i=ti,
+                        j=tj,
+                        k=tk,
+                        intensity=color_vals,
+                        colorscale=colorscale,
+                        colorbar=dict(title=color_mode),
+                        opacity=1.0,
+                        flatshading=True,
+                        lighting=dict(ambient=0.85, diffuse=0.6, roughness=0.5, specular=0.1),
+                        name="Solid 3D Block",
+                    )
                     fig_traces.append(solid_block)
 
             elif render_mode == "Dual Shell (Top/Bottom Surfaces)":
@@ -507,6 +725,11 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
 
             fig_3d = go.Figure(data=fig_traces)
             fig_3d.update_layout(
+                font=dict(
+                    family="Arial, sans-serif",
+                    size=14,
+                    color="black"
+                ),
                 scene=dict(
                     xaxis_title="X (m) [Length]",
                     yaxis_title="Y (m) [Width]",
@@ -524,7 +747,7 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
 # ---------------------------------------------------------
 elif page == "2. Thermomechanical Field Deep Dive":
     st.title("🎯 Thermomechanical Field Deep Dive")
-    st.caption("Component-level inspection of nodal stress, strain, and displacement fields")
+    st.markdown('<p style="font-size: 1.25rem; color: #333; margin-top: -10px; margin-bottom: 20px;">Component-level inspection of nodal stress, strain, and displacement fields</p>', unsafe_allow_html=True)
 
     df_mesh = load_base_geometry()
     available_times = sorted(telem_coll.distinct("time"))
@@ -537,24 +760,40 @@ elif page == "2. Thermomechanical Field Deep Dive":
 
         min_y = float(df_mesh['y'].min()) if 'y' in df_mesh.columns else 0.0
         max_y = float(df_mesh['y'].max()) if 'y' in df_mesh.columns else 1.0
-        mean_y = float(df_mesh['y'].mean()) if 'y' in df_mesh.columns else 0.0
+        center_y = (min_y + max_y) / 2.0
 
-        st.subheader("📍 Spatial Query: Select Transverse Distance")
+        st.subheader("📍 Spatial Query: Select Distance from Weld Center")
         col_inp1, col_inp2 = st.columns(2)
         with col_inp1:
-            target_y = st.number_input(
-                "Enter Transverse Distance / Y-coordinate (m) from Weld Center:",
-                min_value=min_y,
-                max_value=max_y,
-                value=mean_y,
+            offset_y = st.number_input(
+                "Enter Distance from Weld Center (m):",
+                min_value=0.0,
+                max_value=(max_y - min_y) / 2.0,
+                value=0.0,
                 format="%.4f",
                 step=0.001
             )
         with col_inp2:
-            st.info(f"Mesh Y-Range: [{min_y:.4f}m, {max_y:.4f}m]")
+            st.info(f"Weld Center Y: {center_y:.4f}m | Max Offset: {((max_y - min_y) / 2.0):.4f}m")
 
+        target_y = center_y + offset_y
+
+        x_coords = df_mesh['x'].values
         y_coords = df_mesh['y'].values
-        closest_node_idx = int(np.argmin(np.abs(y_coords - target_y)))
+        z_coords = df_mesh['z'].values
+        
+        target_x = (x_coords.min() + x_coords.max()) / 2.0
+        target_z = z_coords.max()
+        
+        mask = (np.abs(x_coords - target_x) < 0.005) & (np.abs(z_coords - target_z) < 0.001)
+        if not np.any(mask):
+            mask = np.ones_like(x_coords, dtype=bool)
+            
+        sub_indices = np.where(mask)[0]
+        sub_y = y_coords[sub_indices]
+        
+        local_closest = int(np.argmin(np.abs(sub_y - target_y)))
+        closest_node_idx = sub_indices[local_closest]
         
         node_row = df_mesh.iloc[closest_node_idx]
         node_x = float(node_row.get('x', 0.0))
@@ -611,7 +850,13 @@ elif page == "2. Thermomechanical Field Deep Dive":
             
             df_thermal_raw = pd.DataFrame(thermal_rows)
             if not df_thermal_raw.empty:
-                st.line_chart(df_thermal_raw.set_index("Time (s)")["Temperature (°C)"])
+                fig_temp = go.Figure(data=go.Scatter(x=df_thermal_raw["Time (s)"], y=df_thermal_raw["Temperature (°C)"], mode='lines'))
+                fig_temp.update_layout(
+                    font=dict(family="Arial, sans-serif", size=14, color="black"),
+                    xaxis_title="Time (s)",
+                    yaxis_title="Temperature (°C)"
+                )
+                st.plotly_chart(fig_temp, use_container_width=True)
             else:
                 st.warning("No thermal history records found.")
 
@@ -630,7 +875,13 @@ elif page == "2. Thermomechanical Field Deep Dive":
             
             df_stress_raw = pd.DataFrame(stress_rows)
             if not df_stress_raw.empty:
-                st.line_chart(df_stress_raw.set_index("Time (s)")["Von Mises Stress (MPa)"])
+                fig_stress = go.Figure(data=go.Scatter(x=df_stress_raw["Time (s)"], y=df_stress_raw["Von Mises Stress (MPa)"], mode='lines'))
+                fig_stress.update_layout(
+                    font=dict(family="Arial, sans-serif", size=14, color="black"),
+                    xaxis_title="Time (s)",
+                    yaxis_title="Von Mises Stress (MPa)"
+                )
+                st.plotly_chart(fig_stress, use_container_width=True)
             else:
                 st.warning("No stress history records found.")
 
@@ -638,17 +889,17 @@ elif page == "2. Thermomechanical Field Deep Dive":
         col_tbl1, col_tbl2 = st.columns(2)
         with col_tbl1:
             with st.expander("📋 View Thermal Raw History Data"):
-                st.dataframe(df_thermal_raw, use_container_width=True)
+                render_html_table(df_thermal_raw)
         with col_tbl2:
             with st.expander("📋 View Stress Raw History Data"):
-                st.dataframe(df_stress_raw, use_container_width=True)
+                render_html_table(df_stress_raw)
 
 # ---------------------------------------------------------
 # PAGE 3: PLASTICITY, DEFORMATION & STRESS REPORT
 # ---------------------------------------------------------
 elif page == "3. Plasticity, Deformation & Stress Report":
     st.title("📊 Plasticity, Deformation & Stress Report")
-    st.caption("Top 10 critical nodes/elements report at the end of welding time based on selected criterion")
+    st.markdown('<p style="font-size: 1.25rem; color: #333; margin-top: -10px; margin-bottom: 20px;">Top 10 critical nodes/elements report at the end of welding time based on selected criterion</p>', unsafe_allow_html=True)
 
     df_mesh = load_base_geometry()
     latest_frame = telem_coll.find_one(sort=[("time", -1)])
@@ -714,7 +965,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                             "Z (m)": f"{float(row.get('z', 0)):.4f}"
                         })
                 df_report = pd.DataFrame(report_rows)
-                st.dataframe(df_report, use_container_width=True)
+                render_html_table(df_report)
             else:
                 st.warning("No von Mises stress data available.")
 
@@ -739,7 +990,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                         "Z (m)": f"{float(row.get('z', 0)):.4f}"
                     })
                 df_report = pd.DataFrame(report_rows)
-                st.dataframe(df_report, use_container_width=True)
+                render_html_table(df_report)
             else:
                 st.warning("No displacement data available.")
 
@@ -786,7 +1037,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
                             "Z (m)": f"{float(row.get('z', 0)):.4f}"
                         })
                 df_report = pd.DataFrame(report_rows)
-                st.dataframe(df_report, use_container_width=True)
+                render_html_table(df_report)
             else:
                 st.warning("No plastic strain data available.")
 
@@ -795,7 +1046,7 @@ elif page == "3. Plasticity, Deformation & Stress Report":
 # ---------------------------------------------------------
 elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
     st.title("⏱️ Simulation Time-Step Archive")
-    st.caption("Discrete query interface for high-resolution 50 Hz thermomechanical frames (Sorted by Temperature)")
+    st.markdown('<p style="font-size: 1.25rem; color: #333; margin-top: -10px; margin-bottom: 20px;">Discrete query interface for high-resolution 50 Hz thermomechanical frames (Sorted by Temperature)</p>', unsafe_allow_html=True)
 
     df_mesh = load_base_geometry()
     distinct_times = telem_coll.distinct("time")
@@ -874,7 +1125,7 @@ elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
                     })
 
                 df_summary = pd.DataFrame(report_rows)
-                st.dataframe(df_summary, use_container_width=True)
+                render_html_table(df_summary)
             else:
                 st.warning("No temperature data available for this frame.")
     else:
@@ -885,7 +1136,7 @@ elif page == "4. Simulation Time-Step Archive (dt = 0.02s)":
 # ---------------------------------------------------------
 elif page == "5. Cluster Health & Pipeline Infrastructure":
     st.title("🖥️ Cluster Health & Infrastructure Monitor")
-    st.caption("Real-time operational health inspection of Docker container services")
+    st.markdown('<p style="font-size: 1.25rem; color: #333; margin-top: -10px; margin-bottom: 20px;">Real-time operational health inspection of Docker container services</p>', unsafe_allow_html=True)
 
     try:
         docker_client = docker.from_env()
@@ -922,18 +1173,7 @@ elif page == "5. Cluster Health & Pipeline Infrastructure":
         st.markdown("---")
         st.subheader("📋 Pipeline Service Architecture Status")
 
-        def highlight_status(row):
-            styles = [""] * len(row)
-            cols = list(row.index)
-            if "Status" in cols:
-                if row["Status"] == "RUNNING":
-                    styles[cols.index("Status")] = "background-color: #28a745; color: white; font-weight: bold;"
-                else:
-                    styles[cols.index("Status")] = "background-color: #dc3545; color: white; font-weight: bold;"
-            return styles
-
-        styled_df = df_containers.style.apply(highlight_status, axis=1)
-        st.dataframe(styled_df, use_container_width=True)
+        render_html_table(df_containers)
 
     except Exception as e:
         st.error(f"Unable to connect to Docker daemon: {e}")

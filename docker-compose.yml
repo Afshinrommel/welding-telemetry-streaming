@@ -88,13 +88,13 @@ services:
     build: .
     container_name: telemetry_dashboard
     restart: always
-    
     ports:
       - "8501:8501"
     environment:
       - MONGO_URI=mongodb://mongodb:27017/
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ./result_data_welding:/app/result_data_welding
     depends_on:
       kafka:
         condition: service_healthy

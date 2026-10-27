@@ -1,4 +1,5 @@
 import json
+import os
 from mpi4py import MPI
 from config import Config
 from geometry import build_welded_mesh
@@ -16,7 +17,11 @@ def extract_exact_topology():
 
     print("Mesh loaded successfully. Extracting HEX8 elements topology...")
     
-    output_filename = "volumetric_elements.jsonl"
+    # Ensure the results directory exists and set the output path
+    results_dir = "/content/drive/MyDrive/welding_simulation/results"
+    os.makedirs(results_dir, exist_ok=True)
+    output_filename = os.path.join(results_dir, "volumetric_elements.jsonl")
+    
     elements = domain.geometry.dofmap.tolist()
     
     with open(output_filename, "w") as f:

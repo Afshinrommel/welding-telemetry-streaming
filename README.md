@@ -27,7 +27,9 @@ my_streaming_project/
 ├── producer.py              # Robust streaming data producer
 ├── consumer.py              # Resilient streaming data consumer with MongoDB sync
 ├── dashboard.py             # Streamlit interactive 3D visualization dashboard
-└── result_data_welding/     # Target dataset directory containing thermomechanical simulation records
+├── result_data_welding/     # Target dataset directory (Requires user data injection)
+│   └── extension/           # Subfolder for 100-110s hot-reload dataset
+└── welding_simulation/      # Physics simulation scripts (FEniCSx Colab pipeline)
 ```
 
 ## 🛠️ Architectural Configuration Details
@@ -44,6 +46,27 @@ my_streaming_project/
 
 4. **Decoupled Monitoring Framework (`dashboard.py`)**
    To eliminate X11 display server dependencies and graphical environment errors inside headless Linux containers, the visualization engine is fully containerized using Streamlit and served securely over port 8501.
+
+## 🔌 Connecting the Simulation Data
+
+Before running the pipeline, you must provide the dataset for the producer to stream. You can either run the simulation yourself or use the pre-computed full-scale datasets.
+
+### Option A: Use the Provided Full-Scale Datasets (Recommended)
+
+Download the pre-computed 100-second simulation datasets from Google Drive and place them in the correct directories:
+
+1. **Baseline Dataset (0–100 s):** Extract the contents of this link directly into the `result_data_welding/` folder.
+   [Download Baseline Dataset](https://drive.google.com/drive/folders/18R-EeZBpHHTf9Dpv04cxxzvRVQwzE-xS?usp=sharing)
+
+2. **Extension Dataset (100–110 s):** Extract the contents of this link into a subfolder named `result_data_welding/extension/` to test directory monitoring and hot-reloading.
+   [Download Extension Dataset](https://drive.google.com/drive/folders/1kLc61-AOx-XbLDPz5LNR2HHdLOIofLvM?usp=drive_link)
+
+### Option B: Generate Data via Simulation
+
+If you ran the FEniCSx simulation yourself using the provided `WELD.ipynb` notebook (located in the `welding_simulation/` folder):
+
+1. Create a folder named `result_data_welding/` in the root directory.
+2. Move the generated files (e.g., `thermal_series.jsonl` and `mechanical_results.jsonl`) from your Colab `results/` folder into the newly created `result_data_welding/` directory.
 
 ## 🚀 Deployment Instructions
 

@@ -2,7 +2,7 @@
 
 A three-dimensional finite element simulation of the transient thermal and elastoplastic mechanical behavior of a welding process, implemented using **FEniCSx**, **Gmsh**, and **PETSc**.
 
-The project is designed to run in **Google Colab** and provides a workflow for generating the mesh, solving the coupled thermal and mechanical problems, and exporting simulation results for post-processing and visualization.
+The project is designed to run in **Google Colab** and provides a workflow for generating the mesh, solving the coupled thermal and mechanical problems, and exporting simulation results for post-processing, real-time telemetry streaming, and visualization.
 
 ## Table of Contents
 
@@ -32,7 +32,7 @@ The workflow includes:
 2. Computing the transient thermal field using a moving heat source.
 3. Accounting for convection and radiation at exposed surfaces.
 4. Computing the mechanical response using temperature-dependent material properties and J2 von Mises elastoplasticity.
-5. Exporting simulation data for post-processing, visualization, and downstream data analysis.
+5. Exporting simulation data for post-processing, visualization, and downstream data streaming pipelines.
 
 The primary execution environment is Google Colab, with project files stored in Google Drive.
 
@@ -325,7 +325,7 @@ To change the simulation duration, update the corresponding configuration parame
 
 In fusion welding processes, localized and transient thermal energy input induces severe temperature gradients throughout the workpiece. Non-uniform thermal expansion and contraction cycles, coupled with the material's elastoplastic behavior and boundary restraint conditions, result in significant residual stresses and permanent distortion once the structure cools to ambient temperature. A primary consequence of this process is out-of-plane geometric distortion (warpage), evaluated here via the transverse displacement component ($u_z$).
 
-The primary scope of this project encompasses two core objectives: formulating a 3D finite element thermo-mechanical welding model in FEniCSx, and engineering a real-time data streaming pipeline for data ingestion, storage, and telemetry visualization using Apache Kafka, MongoDB, and Streamlit. The present implementation focuses on the computational formulation and data infrastructure; physical experimental validation was not performed within this phase. Consequently, the correlation between numerical predictions and empirical measurements is presented as a structured methodology proposed for future research and industrial deployment.
+The primary scope of this project encompasses two core objectives: formulating a 3D finite element thermo-mechanical welding model in FEniCSx, and engineering a real-time data streaming pipeline for data ingestion, storage, and telemetry visualization using Apache Kafka, MongoDB, and Streamlit. The present implementation focuses on the computational formulation and data engineering architecture; physical experimental validation was not performed within this phase. Consequently, the correlation between numerical predictions and empirical measurements is presented as a structured methodology proposed for future research and industrial deployment.
 
 ### 1. Numerical Formulation & Physical Modeling
 
@@ -362,8 +362,8 @@ By modifying operational inputs—such as welding power, travel speed, and arc e
 ### 3. Structural Integrity & HAZ Cracking Assessment
 Mapping residual stress concentrations and accumulated plastic strain (PEEQ) highlights zones susceptible to hot tearing, hydrogen-induced cracking, or cyclic fatigue degradation. These insights assist engineers in determining whether Post-Weld Heat Treatment (PWHT) or controlled preheating is necessary for structural compliance.
 
-### 4. Integration with Real-Time Digital Twin Architectures
-The system architecture routes simulation results through Apache Kafka, persists states in MongoDB, and presents live telemetry via Streamlit. Because the streaming pipeline indexes discrete simulation frames by time and spatial coordinates, it is architecturally prepared to ingest real-time shop-floor sensor feeds (e.g., infrared pyrometers or laser profilometers). Comparing live sensor data against precomputed FEA thresholds on the dashboard enables real-time anomaly detection, transforming standalone FEM code into an operational digital twin.
+### 4. Integration with Real-Time Telemetry and Monitoring Architectures
+The system architecture routes simulation results through Apache Kafka, persists states in MongoDB, and presents live telemetry via Streamlit. Because the streaming pipeline indexes discrete simulation frames by time and spatial coordinates, it is architecturally prepared to ingest real-time shop-floor sensor feeds (e.g., infrared pyrometers or laser profilometers). Comparing live sensor data against precomputed FEA thresholds on the dashboard enables real-time anomaly detection and process monitoring during fabrication.
 
 ## Full-Scale Simulation Results
 
@@ -395,7 +395,7 @@ The Dockerized Kafka producer is pre-configured to automatically mount and strea
 
 ## Repository Structure
 
-The following is an illustrative structure of the simulation project. Actual filenames may differ depending on the current repository contents.
+The following is an illustrative structure of the simulation project.
 
 ```text
 welding-telemetry-streaming/

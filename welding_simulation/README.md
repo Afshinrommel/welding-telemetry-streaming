@@ -390,12 +390,12 @@ To demonstrate transient field ingestion and validate physical response characte
 
 | Transient Molten Pool Field ($t = 8.00\text{ s}$) | Final Residual Stress Contour ($t = 76.00\text{ s}$) |
 | :---: | :---: |
-| ![Transient Temperature Field](welding_simulation/examples/3D_Welding_t_8.00s.jpg) | ![Residual Stress Distribution](welding_simulation/examples/3D_Welding_t_76.00s.jpg) |
+| ![Transient Temperature Field](examples/3D_Welding_t_8.00s.png) | ![Residual Stress Distribution](examples/3D_Welding_t_76.00s.png) |
 | *Moving Goldak double-ellipsoid thermal field* | *Longitudinal residual stress accumulation* |
 
 | Thermal Cycle History (Node 9038) | Von Mises Stress Cycle (Element 7133) |
 | :---: | :---: |
-| ![Temperature Curve](welding_simulation/examples/Temperature_History_Node_9038_2.png) | ![Von Mises Stress Curve](welding_simulation/examples/Stress_History_Element_7133_2.png) |
+| ![Temperature Curve](examples/Temperature_History_Node_9038.png) | ![Von Mises Stress Curve](examples/Stress_History_Element_7133.png) |
 | *Peak thermal cycle reaching ~1300 °C* | *Thermal softening followed by residual locking (~265 MPa)* |
 
 ### Engineering Interpretation
@@ -419,24 +419,23 @@ The Dockerized Kafka producer is pre-configured to automatically mount and strea
 The following is an illustrative structure of the simulation project.
 
 ```text
-welding-telemetry-streaming/
-├── welding_simulation/
-│   ├── WELD.ipynb
-│   ├── config.py
-│   ├── geometry.py
-│   ├── main.py
-│   ├── extract_real_mesh.py
-│   ├── examples/
-│   │   ├── 3D_Welding_t_8.00s.jpg
-│   │   ├── 3D_Welding_t_76.00s.jpg
-│   │   ├── Temperature_History_Node_9038_2.png
-│   │   └── Stress_History_Element_7133_2.png
-│   └── results/
-│       ├── thermal.xdmf
-│       ├── thermal_series.jsonl
-│       ├── mechanical_elastoplastic.xdmf
-│       ├── mechanical_results.jsonl
-│       ├── mesh_topology.json
-│       └── volumetric_elements.jsonl
+welding_simulation/
+├── WELD.ipynb
+├── config.py
+├── geometry.py
+├── main.py
+├── extract_real_mesh.py
+├── examples/
+│   ├── 3D_Welding_t_8.00s.png
+│   ├── 3D_Welding_t_76.00s.png
+│   ├── Temperature_History_Node_9038.png
+│   └── Stress_History_Element_7133.png
+├── results/
+│   ├── thermal.xdmf
+│   ├── thermal_series.jsonl
+│   ├── mechanical_elastoplastic.xdmf
+│   ├── mechanical_results.jsonl
+│   ├── mesh_topology.json
+│   └── volumetric_elements.jsonl
 └── README.md
 ```

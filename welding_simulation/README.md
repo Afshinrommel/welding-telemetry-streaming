@@ -6,7 +6,6 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 
 ## Table of Contents
 
-
 - [Overview](#overview)
 - [Physical Model](#physical-model)
 - [Material Properties](#material-properties)
@@ -16,10 +15,12 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Running the Simulation](#running-the-simulation)
 - [Results and Output Files](#results-and-output-files)
 - [Simulation Configuration](#simulation-configuration)
+- [Problem Formulation, Numerical Modeling & Data Engineering Pipeline](#problem-formulation-numerical-modeling--data-engineering-pipeline)
+- [Proposed Validation Methodology for Future Research & Industrial Deployment](#proposed-validation-methodology-for-future-research--industrial-deployment)
+- [Practical Engineering & Industrial Applications](#practical-engineering--industrial-applications)
 - [Full-Scale Simulation Results](#full-scale-simulation-results)
 - [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
 - [Repository Structure](#repository-structure)
-
 
 ## Overview
 
@@ -69,7 +70,7 @@ The mechanical model uses transient J2 von Mises elastoplasticity with linear is
 
 The steel density is defined as:
 
-**Density:** 7850 kg/m³
+$$\rho = 7850\text{ kg/m}^3$$
 
 The following material properties are modeled as temperature-dependent:
 
@@ -96,9 +97,9 @@ The radiative heat flux depends on the surface temperature and the ambient tempe
 
 ### Mechanical Boundary Conditions
 
-The plate is fully clamped along the edge at \(x = 0\). All three displacement components are constrained:
+The plate is fully clamped along the edge at $x = 0$. All three displacement components are constrained:
 
-[u_x = u_y = u_z = 0]
+$$u_x = u_y = u_z = 0$$
 
 These constraints prevent rigid-body motion and define the mechanical support condition.
 
@@ -316,10 +317,53 @@ The current demonstration configuration uses:
 | Time-step size | 0.02 s |
 | Number of time increments | 200 |
 
-
 The time-step size and simulation duration affect computational cost, temporal resolution, and output-file size.
 
 To change the simulation duration, update the corresponding configuration parameter in `config.py` and ensure that the selected time step and solver settings are appropriate for the intended analysis.
+
+## Problem Formulation, Numerical Modeling & Data Engineering Pipeline
+
+In fusion welding processes, localized and transient thermal energy input induces severe temperature gradients throughout the workpiece. Non-uniform thermal expansion and contraction cycles, coupled with the material's elastoplastic behavior and boundary restraint conditions, result in significant residual stresses and permanent distortion once the structure cools to ambient temperature. A primary consequence of this process is out-of-plane geometric distortion (warpage), evaluated here via the transverse displacement component ($u_z$).
+
+The primary scope of this project encompasses two core objectives: formulating a 3D finite element thermo-mechanical welding model in FEniCSx, and engineering a real-time data streaming pipeline for data ingestion, storage, and telemetry visualization using Apache Kafka, MongoDB, and Streamlit. The present implementation focuses on the computational formulation and data infrastructure; physical experimental validation was not performed within this phase. Consequently, the correlation between numerical predictions and empirical measurements is presented as a structured methodology proposed for future research and industrial deployment.
+
+### 1. Numerical Formulation & Physical Modeling
+
+#### 1.1. Goldak Volumetric Heat Source
+The spatial distribution of heat input is modeled using the Goldak double-ellipsoid heat source formulation. This approach characterizes the front and rear quadrants of the moving molten pool with two distinct semi-ellipsoidal volumetric heat flux distributions, capturing the asymmetric temperature profile along the welding path. The geometric parameters $a$, $b$, $c_f$, and $c_r$ govern the heat source dimensions, while the arc thermal efficiency ($\eta$) dictates the net effective power delivered to the plate.
+
+#### 1.2. Temperature-Dependent Material Properties & Elastoplasticity
+Thermal and mechanical properties are modeled as temperature-dependent functions. These include thermal conductivity, specific heat capacity, Young's modulus, and yield strength, reflecting material softening at elevated temperatures. Nonlinear mechanical behavior is governed by J2 von Mises plasticity with isotropic hardening. When equivalent stresses exceed the temperature-dependent yield limit, plastic deformation accumulates, directly driving final residual warpage and stress fields upon cooling.
+
+#### 1.3. Thermal Boundary Conditions & Sequential Coupling
+Surface heat losses to the ambient environment are accounted for via combined convection and radiation boundary conditions. The transient heat transfer equation is solved first across the computational domain. The resulting time-dependent temperature field is subsequently mapped as a thermal body load into the mechanical solver. In this sequentially coupled thermo-mechanical framework, the primary outputs include the transient thermal field, 3D nodal displacements, equivalent plastic strain (PEEQ), and von Mises stress tensors.
+
+## Proposed Validation Methodology for Future Research & Industrial Deployment
+
+While physical validation was excluded from the current project scope, the finite element formulation and dashboard data extraction tools provide an established foundation for systematic calibration in experimental studies.
+
+### 1. Thermal Calibration via Thermocouples
+To calibrate the model in real-world setups, thermocouples should be attached at precise transverse offsets from the weld centerline. During welding trials, temperature histories (heating rates, peak temperatures, and cooling curves) are logged. Experimental curves can then be matched against numerical outputs to calibrate Goldak parameters ($a, b, c_f, c_r$), arc efficiency ($\eta$), and convective/radiative boundary coefficients. An independent set of thermocouple locations should be held out strictly for final predictive validation.
+
+### 2. Data Extraction via the "Deep Dive" Telemetry Interface
+In the accompanying Streamlit dashboard, Page 2 (*Thermomechanical Field Deep Dive*) includes spatial query capabilities using the `Offset Y` parameter. The interface identifies the nearest mesh node to the specified physical offset and extracts its discrete temperature-time history. This functionality serves as the direct software bridge for experimental correlation: an investigator can match physical thermocouple coordinates to the dashboard query node to inspect transient discrepancies in peak temperature and cooling rates.
+
+### 3. Mechanical Validation & Warpage Measurement
+Following thermal calibration, the verified temperature field drives the mechanical analysis to compute final post-cooling distortion. The out-of-plane displacement field ($u_z$), equivalent plastic strain (PEEQ), and residual stress distributions are extracted. For mechanical validation, workpiece warpage can be measured using optical 3D surface scanning or Coordinate Measuring Machines (CMM). Comparing scanned point clouds against predicted nodal displacements provides a quantitative assessment of simulated distortion patterns under verified clamping constraints.
+
+## Practical Engineering & Industrial Applications
+
+### 1. Warpage Mitigation & Tooling Optimization
+Extracting the out-of-plane displacement field ($u_z$) allows welding engineers to evaluate distortion patterns before cutting metal. This enables proactive optimization of mechanical clamping fixtures, weld pass sequencing, or applying reverse pre-cambering to counteract post-weld angular distortion.
+
+### 2. WPS Optimization & Process Parameter Tuning
+By modifying operational inputs—such as welding power, travel speed, and arc efficiency—within `config.py`, engineers can run parametric studies virtually. Evaluating thermal cycles, HAZ dimensions, plastic strain, and residual stresses across multiple scenarios minimizes costly physical trial-and-error tests and supports Welding Procedure Specification (WPS) qualification.
+
+### 3. Structural Integrity & HAZ Cracking Assessment
+Mapping residual stress concentrations and accumulated plastic strain (PEEQ) highlights zones susceptible to hot tearing, hydrogen-induced cracking, or cyclic fatigue degradation. These insights assist engineers in determining whether Post-Weld Heat Treatment (PWHT) or controlled preheating is necessary for structural compliance.
+
+### 4. Integration with Real-Time Digital Twin Architectures
+The system architecture routes simulation results through Apache Kafka, persists states in MongoDB, and presents live telemetry via Streamlit. Because the streaming pipeline indexes discrete simulation frames by time and spatial coordinates, it is architecturally prepared to ingest real-time shop-floor sensor feeds (e.g., infrared pyrometers or laser profilometers). Comparing live sensor data against precomputed FEA thresholds on the dashboard enables real-time anomaly detection, transforming standalone FEM code into an operational digital twin.
 
 ## Full-Scale Simulation Results
 
@@ -337,7 +381,6 @@ https://drive.google.com/drive/folders/18R-EeZBpHHTf9Dpv04cxxzvRVQwzE-xS?usp=sha
 Dataset (100–110 s simulation - place in result_data_welding/extension/):  
 
 https://drive.google.com/drive/folders/1kLc61-AOx-XbLDPz5LNR2HHdLOIofLvM?usp=drive_link
-
 
 ## Next Steps: Data Pipeline Integration
 
@@ -371,5 +414,3 @@ welding-telemetry-streaming/
 │       └── volumetric_elements.jsonl
 └── README.md
 ```
-
-

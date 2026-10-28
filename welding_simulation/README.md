@@ -19,6 +19,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Proposed Validation Methodology for Future Research & Industrial Deployment](#proposed-validation-methodology-for-future-research--industrial-deployment)
 - [Practical Engineering & Industrial Applications](#practical-engineering--industrial-applications)
 - [Full-Scale Simulation Results](#full-scale-simulation-results)
+- [Simulation Results & Telemetry Output Showcase](#simulation-results--telemetry-output-showcase)
 - [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
 - [Repository Structure](#repository-structure)
 
@@ -334,6 +335,7 @@ The spatial distribution of heat input is modeled using the Goldak double-ellips
 
 #### 1.2. Temperature-Dependent Material Properties & Elastoplasticity
 Thermal and mechanical properties are modeled as temperature-dependent functions. These include thermal conductivity, specific heat capacity, Young's modulus, and yield strength, reflecting material softening at elevated temperatures. Nonlinear mechanical behavior is governed by J2 von Mises plasticity with isotropic hardening. When equivalent stresses exceed the temperature-dependent yield limit, plastic deformation accumulates, directly driving final residual warpage and stress fields upon cooling.
+The current numerical formulation relies on continuous temperature-dependent thermomechanical properties; it does not model metallurgical phase transformations (e.g., solid-state phase changes like austenite/martensite evolution) or fluid-flow dynamics within the molten pool.
 
 #### 1.3. Thermal Boundary Conditions & Sequential Coupling
 Surface heat losses to the ambient environment are accounted for via combined convection and radiation boundary conditions. The transient heat transfer equation is solved first across the computational domain. The resulting time-dependent temperature field is subsequently mapped as a thermal body load into the mechanical solver. In this sequentially coupled thermo-mechanical framework, the primary outputs include the transient thermal field, 3D nodal displacements, equivalent plastic strain (PEEQ), and von Mises stress tensors.
@@ -371,7 +373,7 @@ A full-scale simulation covering 100 seconds has reportedly been executed separa
 
 The corresponding datasets are hosted on Google Drive.
 
-**Dataset links:** 
+**Dataset links:**
 
 The full-scale datasets are separate from the default four-second demonstration configuration. Access permissions and available files depend on the Google Drive sharing settings.
 Baseline Dataset (0–100 s simulation - place in result_data_welding/):
@@ -381,6 +383,25 @@ https://drive.google.com/drive/folders/18R-EeZBpHHTf9Dpv04cxxzvRVQwzE-xS?usp=sha
 Dataset (100–110 s simulation - place in result_data_welding/extension/):  
 
 https://drive.google.com/drive/folders/1kLc61-AOx-XbLDPz5LNR2HHdLOIofLvM?usp=drive_link
+
+## Simulation Results & Telemetry Output Showcase
+
+To demonstrate transient field ingestion and validate physical response characteristics, local telemetry histories were evaluated at an inspection point located **3 mm lateral to the weld seam ($Y = 0.053\text{ m}$)**, positioned at the longitudinal mid-span ($X = 0.060\text{ m}$) on the top plate surface ($Z = 0.003\text{ m}$):
+
+| Transient Molten Pool Field ($t = 8.00\text{ s}$) | Final Residual Stress Contour ($t = 76.00\text{ s}$) |
+| :---: | :---: |
+| ![Transient Temperature Field](welding_simulation/examples/3D_Welding_t_8.00s.jpg) | ![Residual Stress Distribution](welding_simulation/examples/3D_Welding_t_76.00s.jpg) |
+| *Moving Goldak double-ellipsoid thermal field* | *Longitudinal residual stress accumulation* |
+
+| Thermal Cycle History (Node 9038) | Von Mises Stress Cycle (Element 7133) |
+| :---: | :---: |
+| ![Temperature Curve](welding_simulation/examples/Temperature_History_Node_9038_2.png) | ![Von Mises Stress Curve](welding_simulation/examples/Stress_History_Element_7133_2.png) |
+| *Peak thermal cycle reaching ~1300 °C* | *Thermal softening followed by residual locking (~265 MPa)* |
+
+### Engineering Interpretation
+
+1. **Transient Thermal Cycle:** As the heat source approaches and passes the mid-span inspection location at $t \approx 11\text{ s}$, the temperature rises sharply to $\sim 1300\text{ }^\circ\text{C}$, followed by diffusive conduction and surface dissipation during cooling.
+2. **Stress Relaxation & Residual Locking:** The element experiences rapid thermal expansion and yield accumulation, followed by stress relaxation near the molten zone due to thermal softening. As the plate cools down and undergoes volumetric contraction, high tensile residual stress accumulates and stabilizes at approximately **$265\text{ MPa}$**, consistent with the temperature-dependent elastoplastic material formulation.
 
 ## Next Steps: Data Pipeline Integration
 
@@ -405,6 +426,11 @@ welding-telemetry-streaming/
 │   ├── geometry.py
 │   ├── main.py
 │   ├── extract_real_mesh.py
+│   ├── examples/
+│   │   ├── 3D_Welding_t_8.00s.jpg
+│   │   ├── 3D_Welding_t_76.00s.jpg
+│   │   ├── Temperature_History_Node_9038_2.png
+│   │   └── Stress_History_Element_7133_2.png
 │   └── results/
 │       ├── thermal.xdmf
 │       ├── thermal_series.jsonl

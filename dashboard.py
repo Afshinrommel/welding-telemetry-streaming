@@ -739,20 +739,41 @@ if page == "1. Live 3D Twin & Thermal-Stress Stream":
             fig_3d.update_layout(
                 font=dict(
                     family="Arial, sans-serif",
-                    size=14,
+                    size=16,
                     color="black"
                 ),
                 scene=dict(
-                    xaxis_title="X (m) [Length]",
-                    yaxis_title="Y (m) [Width]",
-                    zaxis_title="Z (m) [Thickness + Warpage]",
+                    xaxis_title=dict(text="X (m) [Length]", font=dict(size=16, color="black")),
+                    yaxis_title=dict(text="Y (m) [Width]", font=dict(size=16, color="black")),
+                    zaxis=dict(
+                        title=dict(text="Z (m) [Thickness: 3mm + Warpage]", font=dict(size=15, color="black")),
+                        showticklabels=False,
+                        showgrid=True,
+                        zeroline=True
+                    ),
                     aspectmode="manual",
-                    aspectratio=dict(x=1.2, y=1.0, z=0.04)
+                    aspectratio=dict(x=1.2, y=1.0, z=0.04),
+                    camera=dict(
+                        eye=dict(x=1.2, y=-1.3, z=0.9),
+                        center=dict(x=0, y=0, z=-0.1)
+                    )
                 ),
                 margin=dict(l=0, r=0, b=0, t=10),
-                height=720
+                height=750
             )
-            st.plotly_chart(fig_3d, use_container_width=True)
+            st.plotly_chart(
+                fig_3d,
+                use_container_width=True,
+                config={
+                    'toImageButtonOptions': {
+                        'format': 'png',
+                        'filename': f'3D_Welding_t_{selected_time:.2f}s',
+                        'height': 900,
+                        'width': 1400,
+                        'scale': 3
+                    }
+                }
+            )
 
 # ---------------------------------------------------------
 # PAGE 2: FIELD DEEP DIVE & MECHANICAL INSPECTION
@@ -862,13 +883,31 @@ elif page == "2. Thermomechanical Field Deep Dive":
             
             df_thermal_raw = pd.DataFrame(thermal_rows)
             if not df_thermal_raw.empty:
-                fig_temp = go.Figure(data=go.Scatter(x=df_thermal_raw["Time (s)"], y=df_thermal_raw["Temperature (°C)"], mode='lines'))
+                fig_temp = go.Figure(data=go.Scatter(
+                    x=df_thermal_raw["Time (s)"],
+                    y=df_thermal_raw["Temperature (°C)"],
+                    mode='lines',
+                    line=dict(color="#1f77b4", width=3)
+                ))
                 fig_temp.update_layout(
-                    font=dict(family="Arial, sans-serif", size=14, color="black"),
-                    xaxis_title="Time (s)",
-                    yaxis_title="Temperature (°C)"
+                    font=dict(family="Arial, sans-serif", size=16, color="black"),
+                    xaxis=dict(title=dict(text="Time (s)", font=dict(size=18, color="black")), tickfont=dict(size=14, color="black")),
+                    yaxis=dict(title=dict(text="Temperature (°C)", font=dict(size=18, color="black")), tickfont=dict(size=14, color="black")),
+                    margin=dict(l=40, r=20, t=20, b=40)
                 )
-                st.plotly_chart(fig_temp, use_container_width=True)
+                st.plotly_chart(
+                    fig_temp,
+                    use_container_width=True,
+                    config={
+                        'toImageButtonOptions': {
+                            'format': 'png',
+                            'filename': f'Temperature_History_Node_{closest_node_idx}',
+                            'height': 600,
+                            'width': 900,
+                            'scale': 3
+                        }
+                    }
+                )
             else:
                 st.warning("No thermal history records found.")
 
@@ -887,13 +926,31 @@ elif page == "2. Thermomechanical Field Deep Dive":
             
             df_stress_raw = pd.DataFrame(stress_rows)
             if not df_stress_raw.empty:
-                fig_stress = go.Figure(data=go.Scatter(x=df_stress_raw["Time (s)"], y=df_stress_raw["Von Mises Stress (MPa)"], mode='lines'))
+                fig_stress = go.Figure(data=go.Scatter(
+                    x=df_stress_raw["Time (s)"],
+                    y=df_stress_raw["Von Mises Stress (MPa)"],
+                    mode='lines',
+                    line=dict(color="#d62728", width=3)
+                ))
                 fig_stress.update_layout(
-                    font=dict(family="Arial, sans-serif", size=14, color="black"),
-                    xaxis_title="Time (s)",
-                    yaxis_title="Von Mises Stress (MPa)"
+                    font=dict(family="Arial, sans-serif", size=16, color="black"),
+                    xaxis=dict(title=dict(text="Time (s)", font=dict(size=18, color="black")), tickfont=dict(size=14, color="black")),
+                    yaxis=dict(title=dict(text="Von Mises Stress (MPa)", font=dict(size=18, color="black")), tickfont=dict(size=14, color="black")),
+                    margin=dict(l=40, r=20, t=20, b=40)
                 )
-                st.plotly_chart(fig_stress, use_container_width=True)
+                st.plotly_chart(
+                    fig_stress,
+                    use_container_width=True,
+                    config={
+                        'toImageButtonOptions': {
+                            'format': 'png',
+                            'filename': f'Stress_History_Element_{selected_elem + 1 if selected_elem is not None else 0}',
+                            'height': 600,
+                            'width': 900,
+                            'scale': 3
+                        }
+                    }
+                )
             else:
                 st.warning("No stress history records found.")
 

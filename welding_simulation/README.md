@@ -388,10 +388,10 @@ https://drive.google.com/drive/folders/1kLc61-AOx-XbLDPz5LNR2HHdLOIofLvM?usp=dri
 
 To demonstrate transient field ingestion and validate physical response characteristics, local telemetry histories were evaluated at an inspection point located **3 mm lateral to the weld seam ($Y = 0.053\text{ m}$)**, positioned at the longitudinal mid-span ($X = 0.060\text{ m}$) on the top plate surface ($Z = 0.003\text{ m}$):
 
-| Transient Molten Pool Field ($t = 8.00\text{ s}$) | Final Residual Stress Contour ($t = 76.00\text{ s}$) |
-| :---: | :---: |
-| ![Transient Temperature Field](examples/3D_Welding_t_8.00s.png) | ![Residual Stress Distribution](examples/3D_Welding_t_76.00s.png) |
-| *Moving Goldak double-ellipsoid thermal field* | *Longitudinal residual stress accumulation* |
+| Material State ($t = 10.00\text{ s}$) | Peak Molten Pool Field ($t = 11.20\text{ s}$) | Final Residual Stress Contour ($t = 86.00\text{ s}$) |
+| :---: | :---: | :---: |
+| ![Material State](examples/3D_Welding_t_10.00s.png) | ![Peak Temperature Field](examples/3D_Welding_t_11.20s.png) | ![Residual Stress Distribution](examples/3D_Welding_t_86.00s.png) |
+| *Evolution of material phase state* | *Peak Goldak thermal field at mid-span* | *Longitudinal residual stress accumulation* |
 
 | Thermal Cycle History (Node 9038) | Von Mises Stress Cycle (Element 7133) |
 | :---: | :---: |
@@ -425,11 +425,12 @@ welding_simulation/
 ├── geometry.py
 ├── main.py
 ├── extract_real_mesh.py
-├── examples/
-│   ├── 3D_Welding_t_8.00s.png
-│   ├── 3D_Welding_t_76.00s.png
-│   ├── Temperature_History_Node_9038.png
-│   └── Stress_History_Element_7133.png
+│   ├── examples/
+│   │   ├── 3D_Welding_t_10.00s.png
+│   │   ├── 3D_Welding_t_11.20s.png
+│   │   ├── 3D_Welding_t_86.00s.png
+│   │   ├── Temperature_History_Node_9038.png
+│   │   └── Stress_History_Element_7133.png
 ├── results/
 │   ├── thermal.xdmf
 │   ├── thermal_series.jsonl

@@ -75,11 +75,6 @@ st.markdown("""
             font-size: 1.2rem !important;
             line-height: 1.8 !important;
         }
-
-        [data-testid="stExpander"] details summary svg {
-            width: 1.3rem !important;
-            height: 1.3rem !important;
-        }
         
         [data-testid="stSidebarUserContent"] {
             padding-top: 1.2rem !important;
@@ -388,8 +383,6 @@ def get_hex8_mesh_topology(filepath=MESH_FILE_PATH):
 # Navigation Sidebar
 # ---------------------------------------------------------
 st.sidebar.title("🔥 3D Welding Digital Twin")
-st.sidebar.markdown('<p style="font-size: 1.05rem; color: #444; margin-top: -10px;">High-Fidelity Thermomechanical Ingestion Pipeline (Kafka / MongoDB)</p>', unsafe_allow_html=True)
-
 page = st.sidebar.radio(
     "Select Telemetry View:",
     [

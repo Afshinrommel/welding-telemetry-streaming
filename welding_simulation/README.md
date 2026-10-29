@@ -414,6 +414,9 @@ To integrate these results with the real-time telemetry dashboard:
 
 The Dockerized Kafka producer is pre-configured to automatically mount and stream data directly from this folder.
 
+> **Note / Remark:**  
+> A lightweight 4-second demonstration dataset is already pre-packaged in the `result_data_welding/` directory so the pipeline can be tested immediately out of the box. To inspect and visualize the full 110-second simulation, download the complete datasets from the Google Drive links provided above and replace the existing files in `result_data_welding/` (and `result_data_welding/extension/`).
+
 ## Repository Structure
 
 The following is an illustrative structure of the simulation project.

@@ -92,6 +92,7 @@ services:
       - "8501:8501"
     environment:
       - MONGO_URI=mongodb://mongodb:27017/
+      - DATA_DIR=/app/result_data_welding
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./result_data_welding:/app/result_data_welding

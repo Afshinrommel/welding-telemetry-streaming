@@ -76,12 +76,6 @@ st.markdown("""
             line-height: 1.8 !important;
         }
 
-        /* Increase font size and padding for expander headers */
-        [data-testid="stExpander"] details summary p {
-            font-size: 1.2rem !important;
-            font-weight: 600 !important;
-            color: #262730 !important;
-        }
         [data-testid="stExpander"] details summary svg {
             width: 1.3rem !important;
             height: 1.3rem !important;
@@ -1218,7 +1212,7 @@ elif page == "5. Cluster Health & Pipeline Infrastructure":
 
     try:
         docker_client = docker.from_env()
-        containers = docker_client.containers.list(all=True)
+        containers = [c for c in docker_client.containers.list(all=True) if any(k in c.name for k in ["telemetry_", "welding_twin_"])]        
 
         container_data = []
         running_count = 0
@@ -1228,12 +1222,14 @@ elif page == "5. Cluster Health & Pipeline Infrastructure":
             status = c.status
             if status == "running":
                 running_count += 1
+                status_display = '<span style="background-color: #e6f4ea; color: #137333; font-weight: 600; padding: 3px 8px; border-radius: 4px;">RUNNING</span>'
+            else:
+                status_display = f'<span style="background-color: #fce8e6; color: #c5221f; font-weight: 600; padding: 3px 8px; border-radius: 4px;">{status.upper()}</span>'
 
             ports = ", ".join([f"{k}->{v[0]['HostPort']}" for k, v in c.ports.items() if v]) if c.ports else "None"
-
             container_data.append({
                 "Container Name": c.name,
-                "Status": status.upper(),
+                "Status": status_display,
                 "Image": c.image.tags[0] if c.image.tags else c.image.short_id,
                 "Ports": ports,
                 "Created At": c.attrs.get("Created", "")[:19].replace("T", " "),

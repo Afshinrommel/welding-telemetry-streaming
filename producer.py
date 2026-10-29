@@ -15,13 +15,12 @@ THERMAL_TOPIC = os.getenv("THERMAL_TOPIC", "welding_thermal")
 STREAM_INTERVAL_SECONDS = float(os.getenv("STREAM_INTERVAL", "0.02"))
 
 # Use Docker standard mount path or current directory
-DATA_DIR = os.getenv("DATA_DIR", "/app/data")
+DATA_DIR = os.getenv("DATA_DIR", "result_data_welding")
 POSSIBLE_DIRS = [DATA_DIR, "."]
 
 # Extension folder paths for subsequent data chunks
-EXTENSION_DIR = os.getenv("EXTENSION_DIR", "/app/data/extension")
-POSSIBLE_EXT_DIRS = [EXTENSION_DIR, "extension", "./extension", r"C:\Users\Dell\Documents\Data_Engineering_Project\result_data_welding\extension"]
-
+EXTENSION_DIR = os.getenv("EXTENSION_DIR", "result_data_welding/extension")
+POSSIBLE_EXT_DIRS = [EXTENSION_DIR, "extension", "./extension"]
 # Retry configuration for connection
 INITIAL_RETRY_DELAY = 2
 MAX_RETRY_DELAY = 30

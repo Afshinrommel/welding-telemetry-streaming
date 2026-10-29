@@ -22,6 +22,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Simulation Results & Telemetry Output Showcase](#simulation-results--telemetry-output-showcase)
 - [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
 - [Simulation Scope and Modeling Choices](#simulation-scope-and-modeling-choices)
+- [Computational Setup and Scalability Considerations](#computational-setup-and-scalability-considerations)
 - [Repository Structure](#repository-structure)
 
 ## Overview
@@ -425,6 +426,12 @@ The primary goal of this project is to develop and evaluate a data streaming pip
 In industrial practice, welding simulations are typically performed using specialized commercial software such as SYSWELD or ANSYS, which provide CAD interfaces and automated meshing tools for complex component geometries. Because commercial licenses were not available for this project, the geometry, structured mesh, and solver scripts were written using open-source tools (Gmsh and FEniCSx).
 
 To manage computation times while keeping the mesh resolution sufficient for steep thermal and mechanical gradients, the model was limited to a simple rectangular plate (120 × 100 × 3 mm). While industrial applications involve larger and more complex assemblies, this setup fulfills the project objective of feeding representative numerical data into the streaming architecture.
+
+## Computational Setup and Scalability Considerations
+
+The simulation was executed in Google Colab using a single CPU core, which was sufficient for generating the datasets required for the project. The computational setup was selected to support the data engineering objectives rather than to optimize finite element solver performance.
+
+FEniCSx and PETSc support parallel computing through MPI, but multi-core performance and scalability were not benchmarked as part of this project. Consequently, no conclusions are drawn about the simulation's parallel performance or scalability. Evaluating solver performance across multiple CPU cores or computing nodes remains a possible direction for future work.
 
 ## Repository Structure
 

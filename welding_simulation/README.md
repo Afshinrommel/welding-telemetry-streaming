@@ -21,6 +21,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Full-Scale Simulation Results](#full-scale-simulation-results)
 - [Simulation Results & Telemetry Output Showcase](#simulation-results--telemetry-output-showcase)
 - [Next Steps: Data Pipeline Integration](#next-steps-data-pipeline-integration)
+- [Simulation Scope and Modeling Choices](#simulation-scope-and-modeling-choices)
 - [Repository Structure](#repository-structure)
 
 ## Overview
@@ -416,6 +417,14 @@ The Dockerized Kafka producer is pre-configured to automatically mount and strea
 
 > **Note / Remark:**  
 > A lightweight 4-second demonstration dataset is already pre-packaged in the `result_data_welding/` directory so the pipeline can be tested immediately out of the box. To inspect and visualize the full 110-second simulation, download the complete datasets from the Google Drive links provided above and replace the existing files in `result_data_welding/` (and `result_data_welding/extension/`).
+
+## Simulation Scope and Modeling Choices
+
+The primary goal of this project is to develop and evaluate a data streaming pipeline using Apache Kafka, MongoDB, and Streamlit. The finite element simulation was developed specifically to generate structured, time-dependent data for this pipeline.
+
+In industrial practice, welding simulations are typically performed using specialized commercial software such as SYSWELD or ANSYS, which provide CAD interfaces and automated meshing tools for complex component geometries. Because commercial licenses were not available for this project, the geometry, structured mesh, and solver scripts were written using open-source tools (Gmsh and FEniCSx).
+
+To manage computation times while keeping the mesh resolution sufficient for steep thermal and mechanical gradients, the model was limited to a simple rectangular plate (120 × 100 × 3 mm). While industrial applications involve larger and more complex assemblies, this setup fulfills the project objective of feeding representative numerical data into the streaming architecture.
 
 ## Repository Structure
 

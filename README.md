@@ -10,7 +10,7 @@ The entire data streaming infrastructure is orchestrated using a decentralized, 
 
 2. **Message Broker Integration**: Data is published asynchronously to the Apache Kafka topic.
 
-3. **Data Consumption & Persistence**: The `consumer` container subscribes to the Kafka broker, decodes the incoming JSON payload streams, and injects the records into a MongoDB instance using an **Upsert (Idempotency)** mechanism to prevent duplicate data storage.
+3. **Data Consumption & Persistence**: The `consumer` container subscribes to the Kafka broker, decodes incoming JSON payload streams, and persists the records into MongoDB using an **Upsert-based Idempotency** mechanism (`$setOnInsert` coupled with a compound unique key) to guarantee zero duplication.
 
 4. **Live Graphical Analytics Display**: A containerized Streamlit dashboard runs on port 8501, fetching real-time data chunks from MongoDB to render an interactive 3D digital twin and thermomechanical variations.
 
@@ -29,6 +29,9 @@ my_streaming_project/
 ├── dashboard.py             # Streamlit interactive 3D visualization dashboard
 ├── result_data_welding/     # Target dataset directory (Requires user data injection)
 │   └── extension/           # Subfolder for 100-110s hot-reload dataset
+├── tests/                   # Verification and resilience test suites
+│   ├── test_idempotency.py      # Concurrency & race condition validation
+│   └── test_fault_tolerance.py  # Simulated DB outage & explicit offset replay audit
 └── welding_simulation/      # Physics simulation scripts (FEniCSx Colab pipeline)
 ```
 
@@ -38,7 +41,7 @@ my_streaming_project/
    Designed to handle static datasets, the producer is configured with `restart: on-failure` in the Docker Compose file. It streams the complete dataset once and then gracefully stops (`EXITED` state). This intentional design prevents infinite execution loops and protects the host machine's disk space from being overwhelmed by repetitive Kafka logs.
 
 2. **Resilient Sync Consumer (`consumer.py`)**
-   Features dedicated MongoDB and Kafka connection verification blocks. Converts data directly into structured document payloads before triggering transactional index writing inside the database. It remains running continuously to ensure pipeline stability even if the data stream temporarily stops.
+   Enforces ingestion idempotency via a MongoDB unique compound index (`node_id`, `time_step`) combined with atomic `$setOnInsert` operations. This ensures that duplicate telemetry frames or message redeliveries during network partitions cannot corrupt baseline physical states or create redundant records. It remains running continuously to ensure pipeline stability even if the upstream data stream temporarily pauses.
 
 3. **Isolated Storage Layer (`docker-compose.yml`)**
    Orchestrates 6 cohesive services: `mongodb`, `zookeeper`, `kafka`, `telemetry_producer`, `telemetry_consumer`, and `telemetry_dashboard`.
@@ -90,7 +93,18 @@ Once the containers are running and the producer starts processing data, open yo
 http://localhost:8501
 ```
 
-**Step 3: Graceful Teardown and Resource Cleanup**
+**Step 3: Run Automated Pipeline Audits & Verification Tests**
+Execute the automated test suites against the active infrastructure to verify idempotency, race condition safety, and zero data loss during network/sink interruptions:
+
+```bash
+# 1. Verify ingestion idempotency and race condition handling
+python tests/test_idempotency.py
+
+# 2. Verify fault tolerance and message replay under simulated DB outage
+python -W ignore tests/test_fault_tolerance.py
+```
+
+**Step 4: Graceful Teardown and Resource Cleanup**
 To safely terminate all active streams, capture database buffers, and completely clean up the allocated volumes (ensuring a clean slate for the next run), execute:
 
 ```bash

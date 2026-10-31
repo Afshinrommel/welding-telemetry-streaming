@@ -304,8 +304,6 @@ Expected output categories include the following.
 - `mesh_topology.json` — mesh connectivity or topology information.
 - `volumetric_elements.jsonl` — volumetric element data.
 
-The exact filenames and contents depend on the scripts and configuration used for a particular simulation run.
-
 XDMF/HDF5 files can be used for scientific visualization and post-processing. JSON Lines files are suitable for structured data processing and integration with analysis tools or dashboards.
 
 ## Simulation Configuration

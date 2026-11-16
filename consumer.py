@@ -7,6 +7,7 @@ from kafka import KafkaConsumer, TopicPartition, OffsetAndMetadata
 from kafka.errors import KafkaError
 from pymongo import MongoClient, ASCENDING
 from pymongo.errors import PyMongoError
+from prometheus_client import start_http_server, Counter, Gauge, Histogram
 
 
 # ============================================================
@@ -16,16 +17,17 @@ from pymongo.errors import PyMongoError
 KAFKA_BROKER = os.getenv("KAFKA_BROKER", "kafka:29092")
 GEOMETRY_TOPIC = os.getenv("GEOMETRY_TOPIC", "welding_geometry")
 TELEMETRY_TOPIC = os.getenv("TELEMETRY_TOPIC", "welding_telemetry")
-THERMAL_TOPIC = os.getenv("THERMAL_TOPIC", "welding_thermal") # اضافه شدن توپیگ حرارتی
+THERMAL_TOPIC = os.getenv("THERMAL_TOPIC", "welding_thermal")
 
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://mongodb:27017/")
 DB_NAME = os.getenv("MONGO_DB", "welding_digital_twin")
 
 GEOMETRY_COLLECTION = os.getenv("GEOMETRY_COLLECTION", "mesh_geometry")
 TELEMETRY_COLLECTION = os.getenv("TELEMETRY_COLLECTION", "welding_telemetry")
-THERMAL_COLLECTION = os.getenv("THERMAL_COLLECTION", "welding_thermal") # کالکشن مجزا برای حرارت
+THERMAL_COLLECTION = os.getenv("THERMAL_COLLECTION", "welding_thermal")
 
 KAFKA_GROUP_ID = os.getenv("KAFKA_GROUP_ID", "welding_digital_twin_group")
+METRICS_PORT = int(os.getenv("METRICS_PORT", "8001"))
 
 MAX_RETRIES = 5
 INITIAL_RETRY_DELAY = 2
@@ -33,6 +35,45 @@ MAX_RETRY_DELAY = 30
 
 MAX_PARTITION_FETCH_BYTES = 10 * 1024 * 1024
 FETCH_MAX_BYTES = 50 * 1024 * 1024
+
+
+# ============================================================
+# Prometheus Metrics
+# ============================================================
+
+MESSAGES_PROCESSED = Counter(
+    "welding_consumer_messages_processed_total",
+    "Total number of Kafka messages validated and persisted to MongoDB",
+    ["topic"]
+)
+PROCESSING_ERRORS = Counter(
+    "welding_consumer_processing_errors_total",
+    "Total number of errors encountered during consumption or persistence",
+    ["error_type"]
+)
+DB_WRITE_LATENCY = Histogram(
+    "welding_consumer_db_write_duration_seconds",
+    "Latency of MongoDB upsert operations",
+    ["collection"]
+)
+LAST_CONSUMED_SIM_TIME = Gauge(
+    "welding_consumer_last_sim_time_seconds",
+    "Latest simulation time step persisted in MongoDB (seconds)",
+    ["topic"]
+)
+LAST_COMMITTED_OFFSET = Gauge(
+    "welding_consumer_last_committed_offset",
+    "Last committed Kafka offset per topic",
+    ["topic"]
+)
+MONGO_CONNECTED = Gauge(
+    "welding_consumer_mongodb_connected",
+    "MongoDB connection status (1 = connected, 0 = disconnected)"
+)
+KAFKA_CONNECTED = Gauge(
+    "welding_consumer_kafka_connected",
+    "Kafka consumer connection status (1 = connected, 0 = disconnected)"
+)
 
 
 # ============================================================
@@ -63,16 +104,19 @@ def connect_to_mongodb():
 
             geo_collection = db[GEOMETRY_COLLECTION]
             telem_collection = db[TELEMETRY_COLLECTION]
-            thermal_collection = db[THERMAL_COLLECTION] # اتصال به کالکشن حرارتی
+            thermal_collection = db[THERMAL_COLLECTION]
 
             geo_collection.create_index([("node_id", ASCENDING)], unique=True)
             telem_collection.create_index([("time", ASCENDING), ("event_id", ASCENDING)], unique=True)
-            thermal_collection.create_index([("time", ASCENDING), ("event_id", ASCENDING)], unique=True) # ایندکس برای حرارت
+            thermal_collection.create_index([("time", ASCENDING), ("event_id", ASCENDING)], unique=True)
 
+            MONGO_CONNECTED.set(1)
             print(f"[Consumer] Connected to MongoDB '{DB_NAME}' successfully.")
             return (mongo_client, geo_collection, telem_collection, thermal_collection)
 
         except Exception as exc:
+            MONGO_CONNECTED.set(0)
+            PROCESSING_ERRORS.labels(error_type="mongo_connect").inc()
             print(f"[Consumer] MongoDB connection attempt {attempt}/{MAX_RETRIES} failed: {exc}")
             if mongo_client is not None:
                 mongo_client.close()
@@ -101,14 +145,16 @@ def create_kafka_consumer():
                 value_deserializer=lambda x: json.loads(x.decode("utf-8"))
             )
 
-            # اضافه شدن THERMAL_TOPIC به لیست اشتراک‌ها
             consumer.subscribe([GEOMETRY_TOPIC, TELEMETRY_TOPIC, THERMAL_TOPIC])
 
+            KAFKA_CONNECTED.set(1)
             print(f"[Consumer] Connected to Kafka broker '{KAFKA_BROKER}'.")
             print(f"[Consumer] Subscribed to: {GEOMETRY_TOPIC}, {TELEMETRY_TOPIC}, {THERMAL_TOPIC}")
             return consumer
 
         except KafkaError as exc:
+            KAFKA_CONNECTED.set(0)
+            PROCESSING_ERRORS.labels(error_type="kafka_connect").inc()
             print(f"[Consumer] Kafka connection attempt {attempt}/{MAX_RETRIES} failed: {exc}")
             if attempt < MAX_RETRIES:
                 delay = retry_delay(attempt)
@@ -146,17 +192,19 @@ def validate_telemetry_record(record):
 
 def store_geometry(record, geo_collection):
     node_id = validate_geometry_record(record)
-    geo_collection.update_one({"node_id": node_id}, {"$set": record}, upsert=True)
+    with DB_WRITE_LATENCY.labels(collection=GEOMETRY_COLLECTION).time():
+        geo_collection.update_one({"node_id": node_id}, {"$set": record}, upsert=True)
     if node_id % 1000 == 0:
         print(f"[Consumer] Saved geometry node #{node_id} -> '{GEOMETRY_COLLECTION}'")
 
-def store_telemetry(record, target_collection):
+def store_telemetry(record, target_collection, collection_name):
     sim_time, event_id = validate_telemetry_record(record)
-    target_collection.update_one(
-        {"time": sim_time, "event_id": event_id},
-        {"$set": record},
-        upsert=True
-    )
+    with DB_WRITE_LATENCY.labels(collection=collection_name).time():
+        target_collection.update_one(
+            {"time": sim_time, "event_id": event_id},
+            {"$set": record},
+            upsert=True
+        )
     return sim_time
 
 
@@ -172,6 +220,9 @@ def start_streaming_consumer():
     consumer = None
 
     try:
+        start_http_server(METRICS_PORT)
+        print(f"[Consumer] Prometheus metrics server started on port {METRICS_PORT}.")
+
         (mongo_client, geo_collection, telem_collection, thermal_collection) = connect_to_mongodb()
         consumer = create_kafka_consumer()
         print("[Consumer] Actively listening for 3D welding Digital Twin events...")
@@ -190,42 +241,51 @@ def start_streaming_consumer():
                         print(f"[Consumer] Geometry event persisted (offset={message.offset})")
 
                     elif current_topic == TELEMETRY_TOPIC:
-                        sim_time = store_telemetry(record, telem_collection)
+                        sim_time = store_telemetry(record, telem_collection, TELEMETRY_COLLECTION)
+                        LAST_CONSUMED_SIM_TIME.labels(topic=TELEMETRY_TOPIC).set(float(sim_time))
                         print(f"[Consumer] Stored telemetry frame at t={sim_time}s (offset={message.offset})")
 
-                    elif current_topic == THERMAL_TOPIC: # پردازش توپیگ حرارتی
-                        sim_time = store_telemetry(record, thermal_collection)
+                    elif current_topic == THERMAL_TOPIC:
+                        sim_time = store_telemetry(record, thermal_collection, THERMAL_COLLECTION)
+                        LAST_CONSUMED_SIM_TIME.labels(topic=THERMAL_TOPIC).set(float(sim_time))
                         print(f"[Consumer] Stored THERMAL frame at t={sim_time}s (offset={message.offset})")
 
                     else:
                         raise ValueError(f"Unexpected Kafka topic: {current_topic}")
 
                     consumer.commit(offsets={topic_partition: offset_and_metadata})
+                    MESSAGES_PROCESSED.labels(topic=current_topic).inc()
+                    LAST_COMMITTED_OFFSET.labels(topic=current_topic).set(message.offset + 1)
                     processed = True
                     break
 
                 except (PyMongoError, KafkaError) as exc:
+                    PROCESSING_ERRORS.labels(error_type="persistence_or_broker").inc()
                     print(f"[Consumer] Processing attempt {attempt}/{MAX_RETRIES} failed: {exc}")
                     if attempt < MAX_RETRIES:
                         delay = retry_delay(attempt)
                         time.sleep(delay)
 
                 except (ValueError, TypeError) as exc:
+                    PROCESSING_ERRORS.labels(error_type="validation").inc()
                     print(f"[Consumer] Invalid message (skipping): {exc}")
                     try:
                         consumer.commit(offsets={topic_partition: offset_and_metadata})
                         processed = True
                     except KafkaError as commit_error:
+                        PROCESSING_ERRORS.labels(error_type="offset_commit").inc()
                         print(f"[Consumer] Failed to commit invalid message offset: {commit_error}")
                     break
 
                 except Exception as exc:
+                    PROCESSING_ERRORS.labels(error_type="unexpected").inc()
                     print(f"[Consumer] Unexpected processing error on attempt {attempt}/{MAX_RETRIES}: {exc}")
                     if attempt < MAX_RETRIES:
                         delay = retry_delay(attempt)
                         time.sleep(delay)
 
             if not processed:
+                PROCESSING_ERRORS.labels(error_type="fatal_uncommitted").inc()
                 raise RuntimeError(f"Failed to process Kafka message after {MAX_RETRIES} attempts. Offset {message.offset} remains uncommitted for replay.")
 
     except KeyboardInterrupt:
@@ -234,6 +294,8 @@ def start_streaming_consumer():
         print(f"[Consumer] Critical consumer error: {exc}")
         raise
     finally:
+        MONGO_CONNECTED.set(0)
+        KAFKA_CONNECTED.set(0)
         if consumer is not None:
             try:
                 consumer.close()

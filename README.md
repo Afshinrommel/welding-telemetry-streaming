@@ -1,6 +1,6 @@
 # 3D Welding Digital Twin - Real-Time Data Streaming Pipeline
 
-An end-to-end, resilient, and fully Dockerized data engineering pipeline designed to stream, persist, and visualize real-time welding process thermomechanical fields (such as temperature, stress, and deformation).
+An end-to-end, resilient, and fully Dockerized data engineering pipeline designed to stream, persist, and visualize real-time welding process thermomechanical fields (such as temperature, stress, and deformation), coupled with automated zero-touch infrastructure observability.
 
 ## 🏗️ System Architecture & Pipeline Flow
 
@@ -13,6 +13,8 @@ The entire data streaming infrastructure is orchestrated using a decentralized, 
 3. **Data Consumption & Persistence**: The `consumer` container subscribes to the Kafka broker, decodes incoming JSON payload streams, and persists the records into MongoDB using an **Upsert-based Idempotency** mechanism (`$setOnInsert` coupled with a compound unique key) to guarantee zero duplication.
 
 4. **Live Graphical Analytics Display**: A containerized Streamlit dashboard runs on port 8501, fetching real-time data chunks from MongoDB to render an interactive 3D digital twin and thermomechanical variations.
+
+5. **Infrastructure Observability (Prometheus & Grafana)**: A dedicated monitoring layer tracks system health, producer/consumer throughput, Kafka lag, and MongoDB write latency in real-time, deployed automatically via an Infrastructure as Code (IaC) approach.
 
 ## 📂 Project Repository Structure
 
@@ -27,6 +29,13 @@ my_streaming_project/
 ├── producer.py              # Robust streaming data producer
 ├── consumer.py              # Resilient streaming data consumer with MongoDB sync
 ├── dashboard.py             # Streamlit interactive 3D visualization dashboard
+├── setup_grafana.py         # IaC script for automated Grafana provisioning
+├── prometheus.yml           # Prometheus scraping configuration
+│
+├── grafana/                 # Auto-generated Grafana configuration volumes
+│   ├── provisioning/        # Auto-provisioned datasources and dashboard specs
+│   └── dashboards/          # Pre-built JSON dashboards
+│
 ├── result_data_welding/     # Target dataset directory (Requires user data injection)
 │   └── extension/           # Subfolder for 100-110s hot-reload dataset
 ├── tests/                   # Verification and resilience test suites
@@ -44,11 +53,13 @@ my_streaming_project/
    Enforces ingestion idempotency via a MongoDB unique compound index (`node_id`, `time_step`) combined with atomic `$setOnInsert` operations. This ensures that duplicate telemetry frames or message redeliveries during network partitions cannot corrupt baseline physical states or create redundant records. It remains running continuously to ensure pipeline stability even if the upstream data stream temporarily pauses.
 
 3. **Isolated Storage Layer (`docker-compose.yml`)**
-   Orchestrates 6 cohesive services: `mongodb`, `zookeeper`, `kafka`, `telemetry_producer`, `telemetry_consumer`, and `telemetry_dashboard`.
-   Binds a persistent named volume to prevent datastore erasure across runtime state recreations. Exposes database port `27017:27017` to the local interface.
+   Orchestrates 8 cohesive services: `mongodb`, `zookeeper`, `kafka`, `telemetry_producer`, `telemetry_consumer`, `telemetry_dashboard`, `prometheus`, and `grafana`. Binds persistent named volumes to prevent datastore erasure across runtime state recreations. 
 
 4. **Decoupled Monitoring Framework (`dashboard.py`)**
    To eliminate X11 display server dependencies and graphical environment errors inside headless Linux containers, the visualization engine is fully containerized using Streamlit and served securely over port 8501.
+
+5. **Zero-Touch Observability (IaC)**
+   Grafana and Prometheus are deployed using an Infrastructure as Code strategy. By running `setup_grafana.py`, local provisioning folders are dynamically built. When `docker-compose up` is executed, Grafana mounts these volumes and automatically connects to the Prometheus data source and pre-loads the "Welding Digital Twin - Telemetry Health" dashboard. No manual GUI configuration is required.
 
 ## 🔌 Connecting the Simulation Data
 
@@ -78,22 +89,31 @@ Follow these sequential steps to compile, initialize, and execute the entire pip
 **Prerequisites**
 
 * Docker Desktop installed and running.
+* Python installed locally (to run the setup script).
 
-**Step 1: Initialize the Containerized Streaming Pipeline**
-Open a terminal in the root directory of the project and execute the following unified command to build the shared images from scratch and spin up the complete automated ecosystem in detached mode:
+**Step 1: Provision Grafana Dashboards**
+Before starting the containers, generate the automated Grafana configurations by running the provided setup script in your root directory:
+
+```bash
+python setup_grafana.py
+```
+*(This creates the required provisioning files so Grafana works out-of-the-box).*
+
+**Step 2: Initialize the Containerized Ecosystem**
+Execute the following unified command to build the shared images from scratch and spin up the complete automated ecosystem in detached mode:
 
 ```bash
 docker compose up -d --build
 ```
 
-**Step 2: Launch the Dynamic Visualization Dashboard**
-Once the containers are running and the producer starts processing data, open your web browser and navigate to the Streamlit dashboard:
+**Step 3: Access the Dynamic Dashboards**
+Once the containers are running and the producer starts processing data, open your web browser to access the dual-dashboard interfaces:
 
-```text
-http://localhost:8501
-```
+* **Engineering Digital Twin (Streamlit):** `http://localhost:8501`
+* **System Observability & Monitoring (Grafana):** `http://localhost:3000` (Login: `admin` / `admin`)
+  *(Navigate to **Dashboards** > **Welding Digital Twin - Telemetry Health** to view real-time throughput and database latency).*
 
-**Step 3: Run Automated Pipeline Audits & Verification Tests**
+**Step 4: Run Automated Pipeline Audits & Verification Tests**
 Execute the automated test suites against the active infrastructure to verify idempotency, race condition safety, and zero data loss during network/sink interruptions:
 
 ```bash
@@ -104,7 +124,7 @@ python tests/test_idempotency.py
 python -W ignore tests/test_fault_tolerance.py
 ```
 
-**Step 4: Graceful Teardown and Resource Cleanup**
+**Step 5: Graceful Teardown and Resource Cleanup**
 To safely terminate all active streams, capture database buffers, and completely clean up the allocated volumes (ensuring a clean slate for the next run), execute:
 
 ```bash

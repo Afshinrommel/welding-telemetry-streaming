@@ -1,0 +1,68 @@
+{
+  "title": "Welding Digital Twin - Telemetry Health",
+  "timezone": "browser",
+  "refresh": "5s",
+  "schemaVersion": 39,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Producer vs Consumer Throughput (Messages/sec)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "rate(welding_producer_messages_sent_total[1m])",
+          "legendFormat": "Producer Sent",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(welding_consumer_messages_processed_total[1m])",
+          "legendFormat": "Consumer Processed",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Simulation Time Sync (Lag Monitor)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "targets": [
+        {
+          "expr": "welding_producer_current_sim_time_seconds",
+          "legendFormat": "Producer Sim Time",
+          "refId": "A"
+        },
+        {
+          "expr": "welding_consumer_last_sim_time_seconds",
+          "legendFormat": "Consumer Sim Time",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "MongoDB Average Write Latency (Seconds)",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "rate(welding_consumer_db_write_duration_seconds_sum[1m]) / rate(welding_consumer_db_write_duration_seconds_count[1m])",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

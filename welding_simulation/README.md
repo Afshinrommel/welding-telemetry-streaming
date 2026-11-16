@@ -13,6 +13,7 @@ The project is designed to run in **Google Colab** and provides a workflow for g
 - [Technology Stack](#technology-stack)
 - [Prerequisites](#prerequisites)
 - [Running the Simulation](#running-the-simulation)
+- [Simulation Restart Workflow (100s to 110s)](#simulation-restart-workflow-100s-to-110s)
 - [Results and Output Files](#results-and-output-files)
 - [Simulation Configuration](#simulation-configuration)
 - [Problem Formulation, Numerical Modeling & Data Engineering Pipeline](#problem-formulation-numerical-modeling--data-engineering-pipeline)
@@ -281,6 +282,16 @@ files.download(archive_path)
 
 The archive contains the files available in the `results` directory at the time of compression.
 
+## Simulation Restart Workflow (100s to 110s)
+
+To simulate extended cooling or subsequent thermal cycles beyond the initial setup, the project includes an automated restart notebook (`RESTART.ipynb`). This script reconstructs the transient thermal and cumulative elastoplastic state from $t = 100\text{ s}$ and seamlessly continues the finite element computations up to $t = 110\text{ s}$.
+
+**How it works:**
+1. **Interactive Prompt:** When executed in Google Colab, the notebook halts at the second execution cell and prompts the user with an input box: `Paste the Google Drive folder URL from Chrome:`. 
+2. **Automated Dependency Injection:** The user must paste the Google Drive link containing the previously computed baseline dataset (0–100s). The script automatically fetches the required bulky `.h5` and `.jsonl` files, ensuring all required geometric and physical states are properly initialized.
+3. **Execution Configuration:** The extension period is defined intrinsically within the notebook's `RestartConfig` class via `t_start = 100.0` and `t_end = 110.0`. It is fully self-contained and recalculates the mechanical and thermal stresses dynamically up to 110 seconds.
+4. **Data Availability:** The extension calculations have already been performed successfully, and the resulting structured telemetry outputs are hosted securely on Google Drive, as detailed in the **Full-Scale Simulation Results** section.
+
 ## Results and Output Files
 
 Simulation outputs are stored in the `results/` directory.
@@ -437,6 +448,7 @@ The following is an illustrative structure of the simulation project.
 
 ```text
 welding_simulation/
+├── RESTART.ipynb
 ├── WELD.ipynb
 ├── config.py
 ├── geometry.py

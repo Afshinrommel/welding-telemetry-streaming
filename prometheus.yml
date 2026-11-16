@@ -1,0 +1,12 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: "welding_producer"
+    static_configs:
+      - targets: ["producer:8000"]
+
+  - job_name: "welding_consumer"
+    static_configs:
+      - targets: ["consumer:8001"]

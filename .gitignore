@@ -4,3 +4,4 @@ check_keys.py
 check_mesh.py
 check_temp.py
 check_temp_0_100.py
+sync_stages.ps1

@@ -1,0 +1,169 @@
+{
+  "id": null,
+  "uid": "welding-data-recovery",
+  "title": "Welding Digital Twin - Data Persistence & Recovery",
+  "tags": [
+    "Welding Digital Twin",
+    "Operational Test"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "MongoDB Average Write Latency (Seconds)",
+      "description": "Weighted average duration of MongoDB write operations over the last minute.",
+      "type": "gauge",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(rate(welding_consumer_db_write_duration_seconds_sum[1m])) / sum(rate(welding_consumer_db_write_duration_seconds_count[1m]))",
+          "instant": false,
+          "refId": "A",
+          "legendFormat": "Average Write Latency"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      }
+    },
+    {
+      "id": 2,
+      "title": "Time Since Last Successful Consumer Processing (Seconds)",
+      "description": "Elapsed wall-clock time since a message was successfully persisted in MongoDB and committed in Kafka.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - welding_consumer_last_successful_processing_timestamp_seconds",
+          "instant": false,
+          "refId": "A",
+          "legendFormat": "{{topic}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Last Committed Kafka Offset",
+      "description": "Displays the latest committed Kafka offset reported by the Consumer for each topic.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "welding_consumer_last_committed_offset",
+          "instant": false,
+          "refId": "A",
+          "legendFormat": "{{topic}}"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Time Since Last Successful Producer Send (Seconds)",
+      "description": "Elapsed wall-clock time since the Producer last received a successful Kafka broker acknowledgement.",
+      "type": "timeseries",
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "time() - welding_producer_last_successful_send_timestamp_seconds",
+          "instant": false,
+          "refId": "A",
+          "legendFormat": "Producer"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    }
+  ]
+}

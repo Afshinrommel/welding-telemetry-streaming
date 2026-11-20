@@ -1,0 +1,25 @@
+2026-11-19 22:25:24 | INFO | 
+2026-11-19 22:25:24 | INFO | ============================================================================
+2026-11-19 22:25:24 | INFO | APPENDIX B — INTERACTIVE FAILURE AND RECOVERY TEST
+2026-11-19 22:25:24 | INFO | ============================================================================
+2026-11-19 22:25:24 | INFO | Test ID: APPB-20261119_222524
+2026-11-19 22:25:24 | INFO | Project root: C:\Users\Dell\Documents\Data_Engineering_Project
+2026-11-19 22:25:24 | INFO | Compose file: docker-compose.yml
+2026-11-19 22:25:25 | INFO | Test output directory: C:\Users\Dell\Documents\Data_Engineering_Project\result_data_welding\recovery_test\appendix_b\test_20261119_222524
+2026-11-19 22:25:25 | INFO | Test objective: verify Consumer interruption and recovery after a MongoDB outage, while Producer continues sending to Kafka.
+2026-11-19 22:25:25 | INFO | Important: this controller does not modify producer.py, consumer.py, Docker Compose configuration, Grafana dashboards, or source simulation files.
+2026-11-19 22:25:25 | INFO | 
+2026-11-19 22:25:25 | INFO | ============================================================================
+2026-11-19 22:25:25 | INFO | PHASE 0 — PRE-RESET SOURCE DATA INTEGRITY
+2026-11-19 22:25:25 | INFO | ============================================================================
+2026-11-19 22:25:25 | INFO | Source file: result_data_welding\extension\.gitkeep | size=0 bytes | SHA256=e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+2026-11-19 22:25:25 | INFO | Source file: result_data_welding\mechanical_elastoplastic.h5 | size=141975984 bytes | SHA256=32cb095fabf4ec4f8215d88f5bb8e504c4e1cd1379a70764351ef454959779fe
+2026-11-19 22:25:25 | INFO | Source file: result_data_welding\mechanical_elastoplastic.xdmf | size=157968 bytes | SHA256=43fa2881adc3469a2225eb0c7323ddb7b5b88b8c327d344c58323e0bcb15f168
+2026-11-19 22:25:29 | INFO | Source file: result_data_welding\mechanical_results.jsonl | size=989191231 bytes | SHA256=708f668bef9c2197e8367fb5ec11de966b42f14c7544d13f3d057bedb729e1a4
+2026-11-19 22:25:29 | INFO | Source file: result_data_welding\mesh_topology.json | size=1110762 bytes | SHA256=b8e74e042101e99abc7ab09bba3b65edf3aea1f25aa15cfe17b32a9fd777a409
+2026-11-19 22:25:30 | INFO | Source file: result_data_welding\thermal.h5 | size=120003264 bytes | SHA256=b662adb0277449e81da7561d1e5e701e424dccd0e5ee4d6a4fd5cad7ccfee9f6
+2026-11-19 22:25:30 | INFO | Source file: result_data_welding\thermal.xdmf | size=442388 bytes | SHA256=83c5277da8af1d8f8c144fa72bf4cdd25fb595e2d1729209580167c0a142095f
+2026-11-19 22:25:30 | INFO | Source file: result_data_welding\thermal_series.jsonl | size=103940375 bytes | SHA256=fd4004c53305ddd401d77a0428b007e56d9df718a70ac584ab82a849003ff1db
+2026-11-19 22:25:30 | INFO | Source file: result_data_welding\volumetric_elements.jsonl | size=1314788 bytes | SHA256=8853c3fb98fa8186981135671aa81a46e661ac22d3d5c82e19aeb7e44cc79d4d
+2026-11-19 22:25:30 | INFO | The host-side result_data_welding directory is bind-mounted into the Producer. Docker volume cleanup does not delete this host directory.
+2026-11-19 22:25:36 | WARNING | User did not type RESET. Test cancelled before Docker cleanup.

@@ -1,0 +1,219 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: Welding Digital Twin Health
+    folder: Welding Digital Twin
+    interval: 1m
+
+    rules:
+
+      # 1. Producer unavailable
+      - uid: producer-unavailable
+        title: Producer Unavailable
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '(up{job="welding_producer"} == 0) or absent(up{job="welding_producer"})'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Producer is unavailable
+          description: Prometheus cannot scrape the Producer metrics endpoint.
+        labels:
+          severity: critical
+        isPaused: false
+
+      # 2. Consumer unavailable
+      - uid: consumer-unavailable
+        title: Consumer Unavailable
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: '(up{job="welding_consumer"} == 0) or absent(up{job="welding_consumer"})'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Consumer is unavailable
+          description: Prometheus cannot scrape the Consumer metrics endpoint.
+        labels:
+          severity: critical
+        isPaused: false
+
+      # 3. Producer Kafka connection
+      - uid: producer-kafka-disconnected
+        title: Producer Kafka Disconnected
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'welding_producer_kafka_connected == 0'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Producer Kafka connection lost
+          description: The Producer reports that its Kafka connection is unavailable.
+        labels:
+          severity: critical
+        isPaused: false
+
+      # 4. Consumer Kafka connection
+      - uid: consumer-kafka-disconnected
+        title: Consumer Kafka Disconnected
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'welding_consumer_kafka_connected == 0'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: Consumer Kafka connection lost
+          description: The Consumer reports that its Kafka connection is unavailable.
+        labels:
+          severity: critical
+        isPaused: false
+
+      # 5. MongoDB connection
+      - uid: mongodb-disconnected
+        title: MongoDB Disconnected
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'welding_consumer_mongodb_connected == 0'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: MongoDB connection lost
+          description: The Consumer cannot connect to MongoDB.
+        labels:
+          severity: critical
+        isPaused: false
+
+      # 6. Producer send errors
+      - uid: producer-send-errors
+        title: Producer Send Errors
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(welding_producer_send_errors_total[5m])) > 0'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Producer is experiencing send errors
+          description: Producer send errors have been detected during the last five minutes.
+        labels:
+          severity: warning
+        isPaused: false
+
+      # 7. Consumer processing errors
+      - uid: consumer-processing-errors
+        title: Consumer Processing Errors
+        condition: A
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              datasource:
+                type: prometheus
+                uid: prometheus
+              editorMode: code
+              expr: 'sum(rate(welding_consumer_processing_errors_total[5m])) > 0'
+              instant: true
+              refId: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: Consumer is experiencing processing errors
+          description: Consumer processing errors have been detected during the last five minutes.
+        labels:
+          severity: warning
+        isPaused: false

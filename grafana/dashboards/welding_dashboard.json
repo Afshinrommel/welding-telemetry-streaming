@@ -1,12 +1,13 @@
 {
-  "title": "Welding Digital Twin - Telemetry Health",
+  "title": "Welding Digital Twin - System Health Monitoring",
   "timezone": "browser",
   "refresh": "5s",
   "schemaVersion": 39,
   "panels": [
     {
       "type": "timeseries",
-      "title": "Producer vs Consumer Throughput (Messages/sec)",
+      "title": "1. Producer vs Consumer Throughput (Messages/sec)",
+      "description": "Compares the message sending rate of the Producer with the successfully processed message rate of the Consumer.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -16,19 +17,20 @@
       "targets": [
         {
           "expr": "rate(welding_producer_messages_sent_total[1m])",
-          "legendFormat": "Producer Sent",
+          "legendFormat": "Producer Sent - {{topic}}",
           "refId": "A"
         },
         {
           "expr": "rate(welding_consumer_messages_processed_total[1m])",
-          "legendFormat": "Consumer Processed",
+          "legendFormat": "Consumer Processed - {{topic}}",
           "refId": "B"
         }
       ]
     },
     {
       "type": "timeseries",
-      "title": "Simulation Time Sync (Lag Monitor)",
+      "title": "2. Simulation Processing Progress",
+      "description": "Compares the latest simulation time produced with the latest simulation time persisted by the Consumer.",
       "gridPos": {
         "h": 8,
         "w": 12,
@@ -43,23 +45,269 @@
         },
         {
           "expr": "welding_consumer_last_sim_time_seconds",
-          "legendFormat": "Consumer Sim Time",
+          "legendFormat": "Consumer - {{topic}}",
           "refId": "B"
         }
       ]
     },
     {
-      "type": "gauge",
-      "title": "MongoDB Average Write Latency (Seconds)",
+      "type": "stat",
+      "title": "3. Estimated Unprocessed Messages",
+      "description": "Estimated difference between total messages sent and total messages successfully processed. This is not the actual Kafka consumer lag.",
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 8,
         "x": 0,
         "y": 8
       },
       "targets": [
         {
-          "expr": "rate(welding_consumer_db_write_duration_seconds_sum[1m]) / rate(welding_consumer_db_write_duration_seconds_count[1m])",
+          "expr": "sum(welding_producer_messages_sent_total) - sum(welding_consumer_messages_processed_total)",
+          "legendFormat": "Estimated Difference",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 100
+              },
+              {
+                "color": "red",
+                "value": 500
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "gauge",
+      "title": "4. MongoDB Average Write Latency (Seconds)",
+      "description": "Weighted average duration of MongoDB write operations over the last minute.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(welding_consumer_db_write_duration_seconds_sum[1m])) / sum(rate(welding_consumer_db_write_duration_seconds_count[1m]))",
+          "legendFormat": "Average Write Latency",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "5. Prometheus Scrape Availability",
+      "description": "Shows whether Prometheus can successfully scrape the Producer and Consumer metrics endpoints. This does not represent complete internal service health.",
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 8
+      },
+      "targets": [
+        {
+          "expr": "up{job=~\"welding_producer|welding_consumer\"}",
+          "legendFormat": "{{job}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "DOWN"
+                },
+                "1": {
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "6. Python Process Memory Usage (Bytes)",
+      "description": "Resident memory used by the instrumented Python processes. This represents Python process memory, not total container memory.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes",
+          "legendFormat": "{{job}} Memory",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "7. Producer and Consumer Errors",
+      "description": "Displays the error rate for Producer and Consumer, grouped by service and error type.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "sum by (job, error_type) (rate({__name__=~\"welding_(consumer_processing_errors|producer_send_errors)_total\"}[5m]))",
+          "legendFormat": "{{job}} - {{error_type}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "8. Internal Connection Health",
+      "description": "Shows internal connectivity metrics for Producer and Consumer. 1 = connected, 0 = disconnected. Producer status is updated by Kafka publish operations; Consumer status is updated by its connection checks.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 24
+      },
+      "targets": [
+        {
+          "expr": "welding_producer_kafka_connected",
+          "legendFormat": "Producer - Kafka",
+          "refId": "A"
+        },
+        {
+          "expr": "welding_consumer_kafka_connected",
+          "legendFormat": "Consumer - Kafka",
+          "refId": "B"
+        },
+        {
+          "expr": "welding_consumer_mongodb_connected",
+          "legendFormat": "Consumer - MongoDB",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "text": "DISCONNECTED"
+                },
+                "1": {
+                  "text": "CONNECTED"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "9. Time Since Last Successful Consumer Processing (Seconds)",
+      "description": "Shows elapsed wall-clock time since the last message was successfully persisted in MongoDB and committed in Kafka.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 32
+      },
+      "targets": [
+        {
+          "expr": "time() - welding_consumer_last_successful_processing_timestamp_seconds",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "10. Last Committed Kafka Offset",
+      "description": "Displays the latest committed Kafka offset for each consumed topic.",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 32
+      },
+      "targets": [
+        {
+          "expr": "welding_consumer_last_committed_offset",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "11. Time Since Last Successful Producer Send (Seconds)",
+      "description": "Shows elapsed wall-clock time since the Producer last received a successful Kafka broker acknowledgement.",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 40
+      },
+      "targets": [
+        {
+          "expr": "time() - welding_producer_last_successful_send_timestamp_seconds",
+          "legendFormat": "Producer",
           "refId": "A"
         }
       ]

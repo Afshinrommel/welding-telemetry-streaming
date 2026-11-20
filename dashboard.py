@@ -384,9 +384,9 @@ def get_hex8_mesh_topology(filepath=MESH_FILE_PATH):
 # ---------------------------------------------------------
 st.sidebar.title("🔥 3D Welding Digital Twin")
 page = st.sidebar.radio(
-    "Select Telemetry View:",
+    "Select Dashboard View:",
     [
-        "1. Live 3D Twin & Thermal-Stress Stream",
+        "1. 3D Digital Twin & Thermomechanical Visualization",
         "2. Thermomechanical Field Deep Dive",
         "3. Plasticity, Deformation & Stress Report",
         "4. Simulation Time-Step Archive (dt = 0.02s)",
@@ -420,7 +420,7 @@ if st.sidebar.button("🔄 Scan for New Data (Live Sync)"):
 # ---------------------------------------------------------
 # PAGE 1: INTERACTIVE 3D TWIN & TIMELINE SCRUBBER
 # ---------------------------------------------------------
-if page == "1. Live 3D Twin & Thermal-Stress Stream":
+if page == "1. 3D Digital Twin & Thermomechanical Visualization":
     st.markdown("### 🧊 Interactive 3D Digital Twin & Timeline Scrubber")
     st.markdown('<p style="font-size: 1.25rem; color: #333; margin-bottom: 15px;">Scrub through welding simulation history to inspect thermal fields and transient mechanical warpage.</p>', unsafe_allow_html=True)
 

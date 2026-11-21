@@ -1,8 +1,13 @@
 import json
 import time
 import os
+import sys
+import uuid
 import hashlib
 import threading
+import logging
+from logging.handlers import RotatingFileHandler
+from datetime import datetime, timezone
 
 from kafka import (
     KafkaConsumer,
@@ -56,6 +61,83 @@ FETCH_MAX_BYTES = 50 * 1024 * 1024
 
 # Background health-monitoring interval
 HEALTH_CHECK_INTERVAL = 5
+
+# Consumer poll timeout for periodic idle reporting (ms)
+CONSUMER_POLL_TIMEOUT_MS = 5000
+
+# Operational execution monitoring configuration
+RUN_ID = os.getenv("RUN_ID", "").strip()
+if not RUN_ID:
+    raise RuntimeError(
+        "RUN_ID environment variable is required and must be injected once at pipeline startup."
+    )
+
+PROCESS_INSTANCE_ID = (
+    f"CONS-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-{uuid.uuid4().hex[:6]}"
+)
+LOG_DIR = os.getenv("LOG_DIR", "logs")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+
+# ============================================================
+# Structured Logging Setup
+# ============================================================
+
+class ExecutionContextFilter(logging.Filter):
+    """Injects pipeline RUN_ID and per-process PROCESS_INSTANCE_ID into every log record."""
+
+    def filter(self, record):
+        record.run_id = RUN_ID
+        record.process_instance_id = PROCESS_INSTANCE_ID
+        return True
+
+
+def setup_logger():
+    """Configures dual logging to stdout (Docker logs) and consumer.log."""
+    os.makedirs(LOG_DIR, exist_ok=True)
+    log_file_path = os.path.join(LOG_DIR, "consumer.log")
+
+    logger = logging.getLogger("welding.consumer")
+    numeric_level = getattr(logging, LOG_LEVEL, logging.INFO)
+    logger.setLevel(numeric_level)
+    logger.propagate = False
+
+    if logger.handlers:
+        logger.handlers.clear()
+
+    formatter = logging.Formatter(
+        fmt=(
+            "%(asctime)s | %(levelname)s | %(name)s | "
+            "run_id=%(run_id)s | process_instance_id=%(process_instance_id)s | "
+            "%(message)s"
+        ),
+        datefmt="%Y-%m-%d %H:%M:%S"
+    )
+
+    context_filter = ExecutionContextFilter()
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(numeric_level)
+    stream_handler.setFormatter(formatter)
+    stream_handler.addFilter(context_filter)
+
+    file_handler = RotatingFileHandler(
+        log_file_path,
+        maxBytes=10 * 1024 * 1024,
+        backupCount=5,
+        encoding="utf-8"
+    )
+    file_handler.setLevel(numeric_level)
+    file_handler.setFormatter(formatter)
+    file_handler.addFilter(context_filter)
+
+    logger.addHandler(stream_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+logger = setup_logger()
 
 
 # ============================================================
@@ -119,6 +201,11 @@ KAFKA_CONNECTED.set(0)
 # Utility functions
 # ============================================================
 
+def utc_now_iso():
+    """Returns current UTC timestamp in ISO-8601 format."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def retry_delay(attempt):
     return min(
         INITIAL_RETRY_DELAY * (2 ** (attempt - 1)),
@@ -145,7 +232,7 @@ def generate_stable_id(record):
 # Background Service Health Monitoring
 # ============================================================
 
-def monitor_service_connections(stop_event, mongo_client):
+def monitor_service_connections(stop_event, mongo_client, mark_runtime_failure):
     """
     Continuously checks MongoDB and Kafka connectivity in a
     background thread.
@@ -159,7 +246,7 @@ def monitor_service_connections(stop_event, mongo_client):
     Both checks are repeated every HEALTH_CHECK_INTERVAL seconds.
     """
 
-    print("[Health Monitor] Background monitoring started.")
+    logger.info("HEALTH_MONITOR_STARTED | interval_s=%s", HEALTH_CHECK_INTERVAL)
 
     while not stop_event.is_set():
 
@@ -174,9 +261,10 @@ def monitor_service_connections(stop_event, mongo_client):
 
         except Exception as exc:
             MONGO_CONNECTED.set(0)
+            mark_runtime_failure()
 
-            print(
-                f"[Health Monitor] MongoDB health check failed: {exc}"
+            logger.warning(
+                f"HEALTH_CHECK_FAILED | component=mongodb | error={exc}"
             )
 
         # ----------------------------------------------------
@@ -198,9 +286,10 @@ def monitor_service_connections(stop_event, mongo_client):
 
         except Exception as exc:
             KAFKA_CONNECTED.set(0)
+            mark_runtime_failure()
 
-            print(
-                f"[Health Monitor] Kafka health check failed: {exc}"
+            logger.warning(
+                f"HEALTH_CHECK_FAILED | component=kafka | error={exc}"
             )
 
         finally:
@@ -209,9 +298,9 @@ def monitor_service_connections(stop_event, mongo_client):
                     admin_client.close()
 
                 except Exception as exc:
-                    print(
-                        f"[Health Monitor] Kafka AdminClient "
-                        f"shutdown error: {exc}"
+                    logger.warning(
+                        f"HEALTH_MONITOR_CLEANUP_WARNING | "
+                        f"component=kafka_admin | error={exc}"
                     )
 
         # Wait for the next check.
@@ -219,7 +308,7 @@ def monitor_service_connections(stop_event, mongo_client):
         # when a shutdown signal is received.
         stop_event.wait(HEALTH_CHECK_INTERVAL)
 
-    print("[Health Monitor] Background monitoring stopped.")
+    logger.info("HEALTH_MONITOR_STOPPED")
 
 
 # ============================================================
@@ -272,9 +361,9 @@ def connect_to_mongodb():
 
             MONGO_CONNECTED.set(1)
 
-            print(
-                f"[Consumer] Connected to MongoDB "
-                f"'{DB_NAME}' successfully."
+            logger.info(
+                f"MONGODB_CONNECTED | database={DB_NAME} | "
+                f"collections=[{GEOMETRY_COLLECTION}, {TELEMETRY_COLLECTION}, {THERMAL_COLLECTION}]"
             )
 
             return (
@@ -292,9 +381,9 @@ def connect_to_mongodb():
                 error_type="mongo_connect"
             ).inc()
 
-            print(
-                f"[Consumer] MongoDB connection attempt "
-                f"{attempt}/{MAX_RETRIES} failed: {exc}"
+            logger.warning(
+                f"MONGODB_CONNECTION_RETRY | attempt={attempt}/{MAX_RETRIES} | "
+                f"error={exc}"
             )
 
             if mongo_client is not None:
@@ -304,9 +393,8 @@ def connect_to_mongodb():
 
                 delay = retry_delay(attempt)
 
-                print(
-                    f"[Consumer] Retrying MongoDB connection "
-                    f"in {delay} seconds..."
+                logger.warning(
+                    f"MONGODB_RETRY_BACKOFF | delay_s={delay}"
                 )
 
                 time.sleep(delay)
@@ -330,6 +418,7 @@ def create_kafka_consumer():
                 group_id=KAFKA_GROUP_ID,
                 auto_offset_reset="earliest",
                 enable_auto_commit=False,
+                consumer_timeout_ms=CONSUMER_POLL_TIMEOUT_MS,
                 max_partition_fetch_bytes=MAX_PARTITION_FETCH_BYTES,
                 fetch_max_bytes=FETCH_MAX_BYTES,
                 value_deserializer=lambda x: json.loads(
@@ -345,16 +434,10 @@ def create_kafka_consumer():
 
             KAFKA_CONNECTED.set(1)
 
-            print(
-                f"[Consumer] Connected to Kafka broker "
-                f"'{KAFKA_BROKER}'."
-            )
-
-            print(
-                f"[Consumer] Subscribed to: "
-                f"{GEOMETRY_TOPIC}, "
-                f"{TELEMETRY_TOPIC}, "
-                f"{THERMAL_TOPIC}"
+            logger.info(
+                f"KAFKA_CONNECTED | broker={KAFKA_BROKER} | "
+                f"group_id={KAFKA_GROUP_ID} | "
+                f"topics=[{GEOMETRY_TOPIC}, {TELEMETRY_TOPIC}, {THERMAL_TOPIC}]"
             )
 
             return consumer
@@ -367,18 +450,17 @@ def create_kafka_consumer():
                 error_type="kafka_connect"
             ).inc()
 
-            print(
-                f"[Consumer] Kafka connection attempt "
-                f"{attempt}/{MAX_RETRIES} failed: {exc}"
+            logger.warning(
+                f"KAFKA_CONNECTION_RETRY | attempt={attempt}/{MAX_RETRIES} | "
+                f"error={exc}"
             )
 
             if attempt < MAX_RETRIES:
 
                 delay = retry_delay(attempt)
 
-                print(
-                    f"[Consumer] Retrying Kafka connection "
-                    f"in {delay} seconds..."
+                logger.warning(
+                    f"KAFKA_RETRY_BACKOFF | delay_s={delay}"
                 )
 
                 time.sleep(delay)
@@ -457,18 +539,21 @@ def store_geometry(record, geo_collection):
         collection=GEOMETRY_COLLECTION
     ).time():
 
-        geo_collection.update_one(
+        result = geo_collection.update_one(
             {"node_id": node_id},
             {"$set": record},
             upsert=True
         )
 
-    if node_id % 1000 == 0:
+    is_inserted = result.upserted_id is not None
 
-        print(
-            f"[Consumer] Saved geometry node #{node_id} "
-            f"-> '{GEOMETRY_COLLECTION}'"
-        )
+    logger.debug(
+        f"GEOMETRY_NODE_UPSERTED | node_id={node_id} | "
+        f"collection={GEOMETRY_COLLECTION} | "
+        f"operation={'inserted' if is_inserted else 'existing_updated'}"
+    )
+
+    return is_inserted
 
 
 def store_telemetry(
@@ -483,7 +568,7 @@ def store_telemetry(
         collection=collection_name
     ).time():
 
-        target_collection.update_one(
+        result = target_collection.update_one(
             {
                 "time": sim_time,
                 "event_id": event_id
@@ -492,7 +577,8 @@ def store_telemetry(
             upsert=True
         )
 
-    return sim_time
+    is_inserted = result.upserted_id is not None
+    return sim_time, is_inserted
 
 
 # ============================================================
@@ -511,7 +597,75 @@ def start_streaming_consumer():
     health_stop_event = threading.Event()
     health_thread = None
 
+    # Thread-safe failure state shared between health monitor and main loop
+    failure_lock = threading.Lock()
+    failure_state = {
+        "had_runtime_failure": False
+    }
+
+    def mark_runtime_failure():
+        with failure_lock:
+            failure_state["had_runtime_failure"] = True
+
+    def consume_runtime_failure():
+        with failure_lock:
+            if failure_state["had_runtime_failure"]:
+                failure_state["had_runtime_failure"] = False
+                return True
+            return False
+
+    # Track partitions where an existing committed offset (> 0) was observed on first encounter
+    checked_partitions = set()
+    resumed_existing_logged = set()
+
+    # Per-topic and total operational counters (scoped to this PROCESS_INSTANCE_ID)
+    topic_stats = {
+        GEOMETRY_TOPIC: {
+            "received": 0,
+            "inserted_count": 0,
+            "existing_documents_updated": 0,
+            "messages_skipped_invalid": 0,
+            "last_committed_offset": None
+        },
+        TELEMETRY_TOPIC: {
+            "received": 0,
+            "inserted_count": 0,
+            "existing_documents_updated": 0,
+            "messages_skipped_invalid": 0,
+            "last_committed_offset": None
+        },
+        THERMAL_TOPIC: {
+            "received": 0,
+            "inserted_count": 0,
+            "existing_documents_updated": 0,
+            "messages_skipped_invalid": 0,
+            "last_committed_offset": None
+        }
+    }
+
+    last_activity_iso = None
+    idle_reported = False
+
+    def total_stats():
+        return {
+            "received": sum(v["received"] for v in topic_stats.values()),
+            "inserted_count": sum(v["inserted_count"] for v in topic_stats.values()),
+            "existing_documents_updated": sum(
+                v["existing_documents_updated"] for v in topic_stats.values()
+            ),
+            "messages_skipped_invalid": sum(
+                v["messages_skipped_invalid"] for v in topic_stats.values()
+            )
+        }
+
     try:
+
+        logger.info(
+            f"CONSUMER_STARTED | started_at={utc_now_iso()} | "
+            f"counters_scope=process_instance_reset_to_zero | "
+            f"broker={KAFKA_BROKER} | group_id={KAFKA_GROUP_ID} | "
+            f"database={DB_NAME}"
+        )
 
         # ----------------------------------------------------
         # Start Prometheus metrics server
@@ -519,9 +673,8 @@ def start_streaming_consumer():
 
         start_http_server(METRICS_PORT)
 
-        print(
-            f"[Consumer] Prometheus metrics server "
-            f"started on port {METRICS_PORT}."
+        logger.info(
+            f"PROMETHEUS_EXPORTER_STARTED | port={METRICS_PORT}"
         )
 
         # ----------------------------------------------------
@@ -547,183 +700,142 @@ def start_streaming_consumer():
 
         health_thread = threading.Thread(
             target=monitor_service_connections,
-            args=(health_stop_event, mongo_client),
+            args=(health_stop_event, mongo_client, mark_runtime_failure),
             name="service-health-monitor",
             daemon=True
         )
 
         health_thread.start()
 
-        print(
-            "[Consumer] Actively listening for "
-            "3D welding Digital Twin events..."
+        logger.info(
+            "CONSUMER_LISTENING | Actively listening for 3D welding Digital Twin events"
         )
 
         # ----------------------------------------------------
-        # Main Kafka consumption loop
+        # Main Kafka consumption loop (continuous across idle polls)
         # ----------------------------------------------------
 
-        for message in consumer:
+        while True:
+            received_in_poll = False
 
-            record = message.value
-            current_topic = message.topic
+            for message in consumer:
+                received_in_poll = True
+                idle_reported = False
 
-            topic_partition = TopicPartition(
-                message.topic,
-                message.partition
-            )
+                record = message.value
+                current_topic = message.topic
 
-            offset_and_metadata = OffsetAndMetadata(
-                message.offset + 1,
-                ""
-            )
+                topic_partition = TopicPartition(
+                    message.topic,
+                    message.partition
+                )
 
-            processed = False
-
-            for attempt in range(1, MAX_RETRIES + 1):
-
-                try:
-
-                    # ----------------------------------------
-                    # Geometry topic
-                    # ----------------------------------------
-
-                    if current_topic == GEOMETRY_TOPIC:
-
-                        store_geometry(
-                            record,
-                            geo_collection
+                # Inspect prior committed offset once per partition encounter in this process instance
+                if topic_partition not in checked_partitions:
+                    checked_partitions.add(topic_partition)
+                    try:
+                        prior_committed = consumer.committed(topic_partition)
+                        if (
+                            prior_committed is not None
+                            and prior_committed > 0
+                            and topic_partition not in resumed_existing_logged
+                        ):
+                            logger.info(
+                                f"RESUMED_FROM_EXISTING_COMMITTED_OFFSET | "
+                                f"topic={current_topic} | partition={message.partition} | "
+                                f"prior_committed_offset={prior_committed} | "
+                                f"first_polled_offset={message.offset} | "
+                                f"observed_at={utc_now_iso()}"
+                            )
+                            resumed_existing_logged.add(topic_partition)
+                    except KafkaError as committed_err:
+                        logger.warning(
+                            f"COMMITTED_OFFSET_CHECK_WARNING | topic={current_topic} | "
+                            f"partition={message.partition} | error={committed_err}"
                         )
 
-                        print(
-                            f"[Consumer] Geometry event persisted "
-                            f"(offset={message.offset})"
-                        )
+                offset_and_metadata = OffsetAndMetadata(
+                    message.offset + 1,
+                    ""
+                )
 
-                    # ----------------------------------------
-                    # Telemetry topic
-                    # ----------------------------------------
+                processed = False
+                is_inserted = False
 
-                    elif current_topic == TELEMETRY_TOPIC:
-
-                        sim_time = store_telemetry(
-                            record,
-                            telem_collection,
-                            TELEMETRY_COLLECTION
-                        )
-
-                        LAST_CONSUMED_SIM_TIME.labels(
-                            topic=TELEMETRY_TOPIC
-                        ).set(float(sim_time))
-
-                        print(
-                            f"[Consumer] Stored telemetry frame "
-                            f"at t={sim_time}s "
-                            f"(offset={message.offset})"
-                        )
-
-                    # ----------------------------------------
-                    # Thermal topic
-                    # ----------------------------------------
-
-                    elif current_topic == THERMAL_TOPIC:
-
-                        sim_time = store_telemetry(
-                            record,
-                            thermal_collection,
-                            THERMAL_COLLECTION
-                        )
-
-                        LAST_CONSUMED_SIM_TIME.labels(
-                            topic=THERMAL_TOPIC
-                        ).set(float(sim_time))
-
-                        print(
-                            f"[Consumer] Stored THERMAL frame "
-                            f"at t={sim_time}s "
-                            f"(offset={message.offset})"
-                        )
-
-                    else:
-
-                        raise ValueError(
-                            f"Unexpected Kafka topic: {current_topic}"
-                        )
-
-                    # ----------------------------------------
-                    # Commit Kafka offset after persistence
-                    # ----------------------------------------
-
-                    consumer.commit(
-                        offsets={
-                            topic_partition: offset_and_metadata
-                        }
-                    )
-
-                    # ----------------------------------------
-                    # Update processing metrics
-                    # ----------------------------------------
-
-                    MESSAGES_PROCESSED.labels(
-                        topic=current_topic
-                    ).inc()
-
-                    LAST_COMMITTED_OFFSET.labels(
-                        topic=current_topic
-                    ).set(message.offset + 1)
-
-                    # NEW: Record successful processing timestamp
-                    # Only after MongoDB persistence and Kafka commit.
-                    LAST_SUCCESSFUL_PROCESSING_TIMESTAMP.labels(
-                        topic=current_topic
-                    ).set(time.time())
-
-                    processed = True
-
-                    break
-
-                # --------------------------------------------
-                # Persistence or Kafka errors
-                # --------------------------------------------
-
-                except (PyMongoError, KafkaError) as exc:
-
-                    PROCESSING_ERRORS.labels(
-                        error_type="persistence_or_broker"
-                    ).inc()
-
-                    if isinstance(exc, PyMongoError):
-                        MONGO_CONNECTED.set(0)
-
-                    if isinstance(exc, KafkaError):
-                        KAFKA_CONNECTED.set(0)
-
-                    print(
-                        f"[Consumer] Processing attempt "
-                        f"{attempt}/{MAX_RETRIES} failed: {exc}"
-                    )
-
-                    if attempt < MAX_RETRIES:
-
-                        delay = retry_delay(attempt)
-
-                        time.sleep(delay)
-
-                # --------------------------------------------
-                # Invalid messages
-                # --------------------------------------------
-
-                except (ValueError, TypeError) as exc:
-
-                    PROCESSING_ERRORS.labels(
-                        error_type="validation"
-                    ).inc()
-
-                    print(
-                        f"[Consumer] Invalid message (skipping): {exc}"
-                    )
+                for attempt in range(1, MAX_RETRIES + 1):
 
                     try:
+
+                        # ----------------------------------------
+                        # Geometry topic
+                        # ----------------------------------------
+
+                        if current_topic == GEOMETRY_TOPIC:
+
+                            is_inserted = store_geometry(
+                                record,
+                                geo_collection
+                            )
+
+                            logger.debug(
+                                f"MESSAGE_PERSISTED | topic={GEOMETRY_TOPIC} | "
+                                f"offset={message.offset} | "
+                                f"result={'inserted' if is_inserted else 'existing_updated'}"
+                            )
+
+                        # ----------------------------------------
+                        # Telemetry topic
+                        # ----------------------------------------
+
+                        elif current_topic == TELEMETRY_TOPIC:
+
+                            sim_time, is_inserted = store_telemetry(
+                                record,
+                                telem_collection,
+                                TELEMETRY_COLLECTION
+                            )
+
+                            LAST_CONSUMED_SIM_TIME.labels(
+                                topic=TELEMETRY_TOPIC
+                            ).set(float(sim_time))
+
+                            logger.debug(
+                                f"MESSAGE_PERSISTED | topic={TELEMETRY_TOPIC} | "
+                                f"t={sim_time}s | offset={message.offset} | "
+                                f"result={'inserted' if is_inserted else 'existing_updated'}"
+                            )
+
+                        # ----------------------------------------
+                        # Thermal topic
+                        # ----------------------------------------
+
+                        elif current_topic == THERMAL_TOPIC:
+
+                            sim_time, is_inserted = store_telemetry(
+                                record,
+                                thermal_collection,
+                                THERMAL_COLLECTION
+                            )
+
+                            LAST_CONSUMED_SIM_TIME.labels(
+                                topic=THERMAL_TOPIC
+                            ).set(float(sim_time))
+
+                            logger.debug(
+                                f"MESSAGE_PERSISTED | topic={THERMAL_TOPIC} | "
+                                f"t={sim_time}s | offset={message.offset} | "
+                                f"result={'inserted' if is_inserted else 'existing_updated'}"
+                            )
+
+                        else:
+
+                            raise ValueError(
+                                f"Unexpected Kafka topic: {current_topic}"
+                            )
+
+                        # ----------------------------------------
+                        # Commit Kafka offset after persistence
+                        # ----------------------------------------
 
                         consumer.commit(
                             offsets={
@@ -731,60 +843,218 @@ def start_streaming_consumer():
                             }
                         )
 
-                        processed = True
+                        # ----------------------------------------
+                        # Update processing metrics and counters
+                        # ----------------------------------------
 
-                    except KafkaError as commit_error:
-
-                        PROCESSING_ERRORS.labels(
-                            error_type="offset_commit"
+                        MESSAGES_PROCESSED.labels(
+                            topic=current_topic
                         ).inc()
 
-                        KAFKA_CONNECTED.set(0)
+                        LAST_COMMITTED_OFFSET.labels(
+                            topic=current_topic
+                        ).set(message.offset + 1)
 
-                        print(
-                            f"[Consumer] Failed to commit invalid "
-                            f"message offset: {commit_error}"
+                        now_ts = time.time()
+                        last_activity_iso = utc_now_iso()
+
+                        LAST_SUCCESSFUL_PROCESSING_TIMESTAMP.labels(
+                            topic=current_topic
+                        ).set(now_ts)
+
+                        if current_topic in topic_stats:
+                            stats = topic_stats[current_topic]
+                            stats["received"] += 1
+                            if is_inserted:
+                                stats["inserted_count"] += 1
+                            else:
+                                stats["existing_documents_updated"] += 1
+                            stats["last_committed_offset"] = message.offset + 1
+
+                            if (
+                                (current_topic == GEOMETRY_TOPIC and stats["received"] % 2500 == 0)
+                                or (current_topic != GEOMETRY_TOPIC and stats["received"] % 100 == 0)
+                            ):
+                                totals = total_stats()
+                                logger.info(
+                                    f"BATCH_PROGRESS_SUMMARY | topic={current_topic} | "
+                                    f"topic_received={stats['received']} | "
+                                    f"topic_inserted={stats['inserted_count']} | "
+                                    f"topic_existing_updated={stats['existing_documents_updated']} | "
+                                    f"topic_skipped_invalid={stats['messages_skipped_invalid']} | "
+                                    f"last_committed_offset={stats['last_committed_offset']} | "
+                                    f"total_received={totals['received']} | "
+                                    f"total_inserted={totals['inserted_count']} | "
+                                    f"total_existing_updated={totals['existing_documents_updated']} | "
+                                    f"total_skipped_invalid={totals['messages_skipped_invalid']} | "
+                                    f"last_activity={last_activity_iso}"
+                                )
+
+                        # Log RUNTIME_CONNECTIVITY_RECOVERED only after an observed in-process failure
+                        if consume_runtime_failure():
+                            logger.info(
+                                f"RUNTIME_CONNECTIVITY_RECOVERED | "
+                                f"recovery_source=observed_runtime_failure | "
+                                f"topic={current_topic} | partition={message.partition} | "
+                                f"resumed_offset={message.offset} | "
+                                f"resumed_at={last_activity_iso}"
+                            )
+
+                        processed = True
+
+                        break
+
+                    # --------------------------------------------
+                    # Persistence or Kafka errors
+                    # --------------------------------------------
+
+                    except (PyMongoError, KafkaError) as exc:
+
+                        mark_runtime_failure()
+
+                        PROCESSING_ERRORS.labels(
+                            error_type="persistence_or_broker"
+                        ).inc()
+
+                        if isinstance(exc, PyMongoError):
+                            MONGO_CONNECTED.set(0)
+
+                        if isinstance(exc, KafkaError):
+                            KAFKA_CONNECTED.set(0)
+
+                        logger.warning(
+                            f"PROCESSING_RETRY | topic={current_topic} | "
+                            f"offset={message.offset} | "
+                            f"attempt={attempt}/{MAX_RETRIES} | error={exc}"
                         )
 
-                    break
+                        if attempt < MAX_RETRIES:
 
-                # --------------------------------------------
-                # Unexpected errors
-                # --------------------------------------------
+                            delay = retry_delay(attempt)
 
-                except Exception as exc:
+                            time.sleep(delay)
+
+                    # --------------------------------------------
+                    # Invalid messages
+                    # --------------------------------------------
+
+                    except (ValueError, TypeError) as exc:
+
+                        PROCESSING_ERRORS.labels(
+                            error_type="validation"
+                        ).inc()
+
+                        try:
+
+                            consumer.commit(
+                                offsets={
+                                    topic_partition: offset_and_metadata
+                                }
+                            )
+
+                            LAST_COMMITTED_OFFSET.labels(
+                                topic=current_topic
+                            ).set(message.offset + 1)
+
+                            last_activity_iso = utc_now_iso()
+
+                            if current_topic in topic_stats:
+                                stats = topic_stats[current_topic]
+                                stats["received"] += 1
+                                stats["messages_skipped_invalid"] += 1
+                                stats["last_committed_offset"] = message.offset + 1
+
+                            logger.error(
+                                f"PROCESSING_ERROR | stage=validation | "
+                                f"topic={current_topic} | offset={message.offset} | "
+                                f"committed_offset={message.offset + 1} | "
+                                f"commit_status=COMMITTED | "
+                                f"action=skipped_invalid_and_counted | error={exc}"
+                            )
+
+                            processed = True
+
+                        except KafkaError as commit_error:
+
+                            mark_runtime_failure()
+
+                            PROCESSING_ERRORS.labels(
+                                error_type="offset_commit"
+                            ).inc()
+
+                            KAFKA_CONNECTED.set(0)
+
+                            logger.error(
+                                f"PROCESSING_ERROR | stage=offset_commit | "
+                                f"topic={current_topic} | offset={message.offset} | "
+                                f"commit_status=FAILED | error={commit_error}"
+                            )
+
+                        break
+
+                    # --------------------------------------------
+                    # Unexpected errors
+                    # --------------------------------------------
+
+                    except Exception as exc:
+
+                        mark_runtime_failure()
+
+                        PROCESSING_ERRORS.labels(
+                            error_type="unexpected"
+                        ).inc()
+
+                        logger.warning(
+                            f"PROCESSING_RETRY | stage=unexpected | "
+                            f"topic={current_topic} | offset={message.offset} | "
+                            f"attempt={attempt}/{MAX_RETRIES} | error={exc}"
+                        )
+
+                        if attempt < MAX_RETRIES:
+
+                            delay = retry_delay(attempt)
+
+                            time.sleep(delay)
+
+                # ------------------------------------------------
+                # Failed message: leave offset uncommitted
+                # ------------------------------------------------
+
+                if not processed:
 
                     PROCESSING_ERRORS.labels(
-                        error_type="unexpected"
+                        error_type="fatal_uncommitted"
                     ).inc()
 
-                    print(
-                        f"[Consumer] Unexpected processing error "
-                        f"on attempt {attempt}/{MAX_RETRIES}: {exc}"
+                    logger.error(
+                        f"PROCESSING_ERROR | stage=fatal_uncommitted | "
+                        f"topic={current_topic} | offset={message.offset} | "
+                        f"attempts={MAX_RETRIES} | "
+                        f"message=Offset remains uncommitted for replay"
                     )
 
-                    if attempt < MAX_RETRIES:
+                    raise RuntimeError(
+                        f"Failed to process Kafka message after "
+                        f"{MAX_RETRIES} attempts. "
+                        f"Offset {message.offset} remains uncommitted "
+                        f"for replay."
+                    )
 
-                        delay = retry_delay(attempt)
-
-                        time.sleep(delay)
-
-            # ------------------------------------------------
-            # Failed message: leave offset uncommitted
-            # ------------------------------------------------
-
-            if not processed:
-
-                PROCESSING_ERRORS.labels(
-                    error_type="fatal_uncommitted"
-                ).inc()
-
-                raise RuntimeError(
-                    f"Failed to process Kafka message after "
-                    f"{MAX_RETRIES} attempts. "
-                    f"Offset {message.offset} remains uncommitted "
-                    f"for replay."
+            # Log CONSUMER_IDLE once per idle window when no new messages arrive
+            if not received_in_poll and not idle_reported:
+                totals = total_stats()
+                logger.info(
+                    f"CONSUMER_IDLE | status=WAITING_FOR_MESSAGES | "
+                    f"idle_window_ms={CONSUMER_POLL_TIMEOUT_MS} | "
+                    f"total_received={totals['received']} | "
+                    f"total_inserted={totals['inserted_count']} | "
+                    f"total_existing_updated={totals['existing_documents_updated']} | "
+                    f"total_skipped_invalid={totals['messages_skipped_invalid']} | "
+                    f"by_topic={json.dumps(topic_stats, sort_keys=True)} | "
+                    f"last_activity={last_activity_iso} | "
+                    f"observed_at={utc_now_iso()}"
                 )
+                idle_reported = True
 
     # ========================================================
     # Shutdown handling
@@ -792,14 +1062,13 @@ def start_streaming_consumer():
 
     except KeyboardInterrupt:
 
-        print(
-            "\n[Consumer] Process stopped manually."
-        )
+        logger.info("CONSUMER_STOPPED | reason=KeyboardInterrupt")
 
     except Exception as exc:
 
-        print(
-            f"[Consumer] Critical consumer error: {exc}"
+        logger.error(
+            f"PROCESSING_ERROR | stage=critical_runtime | error={exc}",
+            exc_info=True
         )
 
         raise
@@ -820,16 +1089,15 @@ def start_streaming_consumer():
 
             if health_thread.is_alive():
 
-                print(
-                    "[Consumer] Warning: Health-monitoring thread "
-                    "did not stop within the expected time."
+                logger.warning(
+                    "HEALTH_MONITOR_SHUTDOWN_WARNING | "
+                    "Thread did not stop within expected timeout"
                 )
 
             else:
 
-                print(
-                    "[Consumer] Health-monitoring thread "
-                    "stopped successfully."
+                logger.info(
+                    "HEALTH_MONITOR_SHUTDOWN_OK"
                 )
 
         # ----------------------------------------------------
@@ -849,14 +1117,12 @@ def start_streaming_consumer():
 
                 consumer.close()
 
-                print(
-                    "[Consumer] Kafka consumer closed."
-                )
+                logger.info("CONSUMER_KAFKA_CLOSED")
 
             except Exception as exc:
 
-                print(
-                    f"[Consumer] Kafka shutdown error: {exc}"
+                logger.warning(
+                    f"CONSUMER_KAFKA_CLOSE_WARNING | error={exc}"
                 )
 
         # ----------------------------------------------------
@@ -869,14 +1135,12 @@ def start_streaming_consumer():
 
                 mongo_client.close()
 
-                print(
-                    "[Consumer] MongoDB connection closed."
-                )
+                logger.info("CONSUMER_MONGODB_CLOSED")
 
             except Exception as exc:
 
-                print(
-                    f"[Consumer] MongoDB shutdown error: {exc}"
+                logger.warning(
+                    f"CONSUMER_MONGODB_CLOSE_WARNING | error={exc}"
                 )
 
 

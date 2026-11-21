@@ -1,40 +1,46 @@
 # 3D Welding Digital Twin - Simulation Data Streaming Pipeline
 
-A Dockerized data streaming pipeline for reading pre-computed 3D welding thermomechanical simulation outputs (temperature, stress, and deformation), streaming records through Apache Kafka, persisting them in MongoDB, and inspecting them via Streamlit, Prometheus, and Grafana.
+A Dockerized data streaming pipeline for reading pre-computed 3D welding thermomechanical simulation outputs (temperature, stress, and deformation), streaming records through Apache Kafka, persisting them in MongoDB, and inspecting them via Streamlit, Prometheus, Grafana, and structured operational execution logs.
 
 ## System Architecture & Pipeline Flow
 
 The pipeline is orchestrated with Docker Compose using the following components:
 
-1. **Data Ingestion (`producer`)**: Reads pre-computed numerical simulation files from `result_data_welding/` (and `result_data_welding/extension/` when present) and publishes records line-by-line to Apache Kafka topics.
+1. **Data Ingestion (`producer`)**: Reads pre-computed numerical simulation files from `result_data_welding/` (and polls `result_data_welding/extension/` every 15 seconds for subsequent chunks) and publishes records line-by-line to Apache Kafka topics (`welding_geometry`, `welding_telemetry`, and `welding_thermal`).
 
 2. **Message Broker (`kafka` & `zookeeper`)**: Buffers and transports simulation telemetry and mesh geometry messages between the producer and consumer.
 
-3. **Data Consumption & Persistence (`consumer` & `mongodb`)**: Subscribes to Kafka topics, decodes JSON payloads, and persists records into MongoDB using upsert idempotency (`$setOnInsert` with a unique compound index) to avoid duplicate records on replay.
+3. **Data Consumption & Persistence (`consumer` & `mongodb`)**: Subscribes to Kafka topics, validates and decodes JSON payloads, and persists records into MongoDB using idempotent upserts (`update_one(..., upsert=True)` backed by unique indexes) followed by explicit per-message Kafka offset commits.
 
-4. **Visualization Interface (`dashboard`)**: A containerized Streamlit application on port `8501` that queries stored simulation records from MongoDB to render 3D mesh and thermomechanical plots.
+4. **Visualization Interface (`dashboard`)**: A containerized Streamlit application on port `8501` that queries stored simulation records from MongoDB to render 3D mesh and thermomechanical plots alongside container health status.
 
-5. **Pipeline Monitoring (`prometheus` & `grafana`)**: Prometheus (`:9090`) scrapes metrics exposed by the producer and consumer, and Grafana (`:3000`) displays dashboards provisioned via `setup_grafana.py`.
+5. **Operational Execution Monitoring & Metrics (`logs/`, `prometheus`, & `grafana`)**:
+   - **Structured Execution Audit Logs (`./logs/producer.log` & `./logs/consumer.log`)**: Both services emit dual-output structured logs (Docker `stdout` and rotating host log files) correlated by a single pipeline-level `RUN_ID` and distinct per-process `PROCESS_INSTANCE_ID` identifiers, enabling engineers to verify normal batch progression, extension file ingestion, idle readiness, and runtime recovery events.
+   - **Time-Series Metrics & Dashboards**: Prometheus (`:9090`) scrapes metrics exposed by the producer (`:8000`) and consumer (`:8001`), and Grafana (`:3000`) displays dashboards provisioned via `setup_grafana.py`.
 
 ## Project Repository Structure
 
 ```text
 welding-telemetry-streaming/
 │
-├── docker-compose.yml               # Multi-container service and volume definitions
+├── docker-compose.yml               # Multi-container service and volume definitions (8 services)
 ├── Dockerfile                       # Container image definition for Python services
-├── requirements.txt                 # Python dependencies (streamlit, kafka-python, pymongo)
+├── requirements.txt                 # Python dependencies (streamlit, kafka-python, pymongo, prometheus-client)
 ├── .dockerignore                    # Files excluded from Docker build context
 │
-├── producer.py                      # Simulation dataset reader and Kafka producer
-├── consumer.py                      # Kafka consumer and MongoDB writer
+├── producer.py                      # Simulation dataset reader, extension watcher, and Kafka producer
+├── consumer.py                      # Kafka consumer, validator, and idempotent MongoDB writer
 ├── dashboard.py                     # Streamlit 3D visualization interface for stored simulation data
 ├── setup_grafana.py                 # Script for generating Grafana provisioning files and dashboards
 ├── prometheus.yml                   # Prometheus scrape configuration
 │
 ├── run_failure_recovery_test.py     # Interactive Appendix B failure and recovery test controller
 ├── recovery_test.ps1                # PowerShell script testing Kafka buffering & consumer replay after MongoDB outage
-├── run_pipeline.ps1                 # PowerShell script to reset, provision Grafana, start containers, and check health
+├── run_pipeline.ps1                 # PowerShell script to generate RUN_ID, reset, provision Grafana, and start services
+│
+├── logs/                            # Host-mounted structured execution logs (created at runtime)
+│   ├── producer.log                 # Producer lifecycle, file scanning, batch completion, and Kafka ack logs
+│   └── consumer.log                 # Consumer lifecycle, batch progress summaries, idle states, and recovery logs
 │
 ├── grafana/                         # Generated Grafana provisioning files and dashboard JSONs
 │   ├── provisioning/                # Datasource and dashboard provisioning definitions
@@ -61,17 +67,17 @@ welding-telemetry-streaming/
 
 ## Architectural Configuration Details
 
-1. **Finite Dataset Ingestion (`producer.py`)**
-   Configured with `restart: on-failure` in `docker-compose.yml`, the producer streams the pre-computed simulation dataset once and then exits cleanly (`EXITED` state) rather than looping indefinitely over static simulation files.
+1. **Continuous Dataset & Extension Ingestion (`producer.py`)**
+   Configured with `restart: on-failure` in `docker-compose.yml`, the producer streams the base mesh geometry (`mesh_topology.json` or `kafka_nodes_stream.jsonl`) and baseline telemetry (`mechanical_results.jsonl`), logs `INITIAL_BATCH_COMPLETED`, and remains active (`WATCHING_EXTENSION`) to scan `result_data_welding/extension/` every 15 seconds with a heuristic file-readiness check (`is_file_stable`).
 
-2. **Idempotent Consumer (`consumer.py`)**
-   Enforces ingestion idempotency using a MongoDB unique compound index (`node_id`, `time_step`) combined with atomic `$setOnInsert` operations. Replayed or redelivered Kafka messages after service interruptions do not create duplicate entries, while the consumer stays active to wait for subsequent messages.
+2. **Idempotent Consumer & Explicit Offset Commits (`consumer.py`)**
+   Enforces ingestion idempotency using unique MongoDB indexes (`node_id` for `mesh_geometry`; `(time, event_id)` for `welding_telemetry` and `welding_thermal`) combined with `update_one(..., upsert=True)` operations. Kafka offsets are committed only after successful MongoDB persistence (or after logging and counting invalid messages under `messages_skipped_invalid`).
 
-3. **Container & Storage Setup (`docker-compose.yml`)**
-   Manages 8 services (`mongodb`, `zookeeper`, `kafka`, `telemetry_producer`, `telemetry_consumer`, `telemetry_dashboard`, `prometheus`, and `grafana`) and attaches named volumes so persisted MongoDB data survives container restarts.
+3. **Pipeline-Wide `RUN_ID` & Process Tracking (`docker-compose.yml`)**
+   Requires a single `RUN_ID` environment variable at pipeline startup so all log entries across `producer.log` and `consumer.log` share one execution identifier (`run_id=...`), while each container startup generates a unique `process_instance_id` (`PROD-...` or `CONS-...`) so in-memory counter resets across restarts remain unambiguous.
 
-4. **Browser-Based Simulation Viewer (`dashboard.py`)**
-   Runs Streamlit inside a headless Linux container on port `8501`, reading persisted simulation chunks from MongoDB instead of connecting to physical welding hardware or live sensors.
+4. **Container & Storage Setup (`docker-compose.yml`)**
+   Manages 8 services (`mongodb`, `zookeeper`, `kafka`, `producer`, `consumer`, `dashboard`, `prometheus`, and `grafana`), mounts `./logs:/app/logs` for persistent host-side log inspection, and attaches named volumes so persisted MongoDB data survives container restarts.
 
 5. **Automated Monitoring Setup (`setup_grafana.py`)**
    Generates local Grafana provisioning directories before startup so Docker Compose mounts the Prometheus datasource and pre-configured dashboards without manual GUI setup.
@@ -95,7 +101,7 @@ Download the pre-computed simulation files and place them in the directories bel
 If you run the FEniCSx simulation yourself using `WELD.ipynb` inside `welding_simulation/`:
 
 1. Create `result_data_welding/` in the project root directory.
-2. Copy the generated JSONL files (such as `thermal_series.jsonl` and `mechanical_results.jsonl`) from your simulation output folder into `result_data_welding/`.
+2. Copy the generated JSONL/JSON files (such as `mesh_topology.json`, `mechanical_results.jsonl`, and `thermal_series.jsonl`) from your simulation output folder into `result_data_welding/`.
 
 ## Running the Pipeline
 
@@ -112,18 +118,35 @@ Before starting the containers, generate the Grafana provisioning files by runni
 ```bash
 python setup_grafana.py
 ```
-*(On Windows PowerShell, `.\run_pipeline.ps1` performs a clean reset with `docker compose down -v`, runs `setup_grafana.py`, starts all services with `docker compose up -d --build`, checks HTTP readiness and Prometheus targets, and opens Grafana and Streamlit in the browser.)*
 
-**Step 2: Build and Start Containers**
-Build the images and start the containers in detached mode:
+**Step 2: Set `RUN_ID`, Build, and Start Containers**
+Generate a single `RUN_ID` for the pipeline execution and start all 8 containers in detached mode:
 
-```bash
-docker compose up -d --build
-```
+* **Windows PowerShell (recommended one-step automation):**
+  ```powershell
+  .\run_pipeline.ps1
+  ```
+  *(Automatically sets `$env:RUN_ID` if unset, performs a clean reset with `docker compose down -v`, runs `setup_grafana.py`, starts all services with `docker compose up -d --build`, checks HTTP readiness and Prometheus targets, and opens Grafana and Streamlit in the browser.)*
 
-**Step 3: Open the Dashboards**
-Once the containers are running and the producer starts streaming simulation records, open the two web interfaces:
+* **Manual Startup (Windows PowerShell):**
+  ```powershell
+  $env:RUN_ID = "RUN-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
+  docker compose up -d --build
+  ```
 
+* **Manual Startup (Linux / macOS):**
+  ```bash
+  export RUN_ID="RUN-$(date +%Y%m%d-%H%M%S)"
+  docker compose up -d --build
+  ```
+
+**Step 3: Inspect Operational Logs & Dashboards**
+Once the containers are running, engineers can verify pipeline execution through both structured logs and web dashboards:
+
+- **Structured Execution Logs (Host):**
+  - `./logs/producer.log` (`PRODUCER_STARTED`, `INITIAL_BATCH_COMPLETED`, `WATCHING_EXTENSION`, `NEW_FILES_DETECTED`, `EXTENSION_FILE_COMPLETED`)
+  - `./logs/consumer.log` (`CONSUMER_STARTED`, `BATCH_PROGRESS_SUMMARY`, `CONSUMER_IDLE`, `RUNTIME_CONNECTIVITY_RECOVERED`)
+- **Unified Container Logs:** `docker compose logs --timestamps producer consumer`
 - **Simulation Viewer (Streamlit):** `http://localhost:8501`
 - **Metrics & Monitoring (Grafana):** `http://localhost:3000` (Login: `admin` / `admin`)
   *(Open **Dashboards** to inspect **Pipeline Performance**, **Data Persistence & Recovery**, and **Service Health & Errors**.)*
@@ -138,10 +161,10 @@ python tests/test_idempotency.py
 # 2. Verify fault tolerance and message replay under simulated DB outage
 python -W ignore tests/test_fault_tolerance.py
 
-# 3. Run the interactive Appendix B failure & recovery test
+# 3. Run the interactive Appendix B failure & recovery test (auto-generates APPB-<timestamp> RUN_ID)
 python run_failure_recovery_test.py
 ```
-*(On Windows PowerShell, `.\recovery_test.ps1` can also be executed to inject 20 isolated test records into Kafka while MongoDB and the consumer are stopped, verifying complete recovery after restart.)*
+*(On Windows PowerShell, `.\recovery_test.ps1` can also be executed against an active stack to inject 20 isolated test records into Kafka while MongoDB and the consumer are stopped, verifying complete recovery after restart.)*
 
 **Step 5: Stop Containers and Remove Volumes**
 To stop the services and clear the Docker volumes before a fresh run, execute:
@@ -149,6 +172,13 @@ To stop the services and clear the Docker volumes before a fresh run, execute:
 ```bash
 docker compose down -v
 ```
+
+## Normal Operation Execution Trace
+
+During normal operation without fault injection (`RUN-20261121-155126`), structured logs in `logs/producer.log` and `logs/consumer.log` verified end-to-end ingestion across both baseline and extension phases:
+
+1. **Baseline Phase (0–100 s):** Producer detected and streamed `mesh_topology.json` (`16,226` geometry nodes to `welding_geometry`) and `mechanical_results.jsonl` (`501` frames to `welding_telemetry`). Consumer persisted all `16,727` messages (`inserted_count=16727`, `existing_documents_updated=0`, `messages_skipped_invalid=0`) and entered `CONSUMER_IDLE | status=WAITING_FOR_MESSAGES`.
+2. **Extension Phase (100–110 s):** Placing the extension files into `result_data_welding/extension/` triggered automatic detection during the 15-second directory scan, streaming `+50` mechanical frames to `welding_telemetry` and `+50` thermal frames to `welding_thermal`. Consumer persisted all `100` additional records without restart (`total_received=16827`, `total_inserted=16827`, `last_committed_offset=16226` / `551` / `50`).
 
 ## Appendix B: Failure & Recovery Verification
 

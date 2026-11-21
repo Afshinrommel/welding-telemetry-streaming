@@ -69,8 +69,12 @@ services:
       - DATA_DIR=/app/result_data_welding
       - EXTENSION_DIR=/app/result_data_welding/extension
       - METRICS_PORT=8000
+      - RUN_ID=${RUN_ID:?RUN_ID must be set once at pipeline startup (e.g. RUN-20261121-001)}
+      - LOG_DIR=/app/logs
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - ./result_data_welding:/app/result_data_welding
+      - ./logs:/app/logs
     command: python producer.py
 
   consumer:
@@ -88,6 +92,12 @@ services:
       - KAFKA_BROKER=kafka:29092
       - MONGO_URI=mongodb://mongodb:27017/
       - METRICS_PORT=8001
+      - RUN_ID=${RUN_ID:?RUN_ID must be set once at pipeline startup (e.g. RUN-20261121-001)}
+      - LOG_DIR=/app/logs
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./result_data_welding:/app/result_data_welding
+      - ./logs:/app/logs
     command: python consumer.py
 
   dashboard:

@@ -80,6 +80,8 @@ Write-Host "`n---------------------------------------------------" -ForegroundCo
 Write-Host "3. Building and starting Docker services..." -ForegroundColor Yellow
 Write-Host "---------------------------------------------------" -ForegroundColor Cyan
 
+if (-not $env:RUN_ID) { $env:RUN_ID = "RUN-$(Get-Date -Format 'yyyyMMdd-HHmmss')" }
+Write-Host "Active Pipeline RUN_ID: $env:RUN_ID" -ForegroundColor Cyan
 docker compose up -d --build
 
 if ($LASTEXITCODE -ne 0) {

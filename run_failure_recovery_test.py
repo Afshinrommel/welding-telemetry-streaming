@@ -19,6 +19,7 @@ import urllib.request
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+import os
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "result_data_welding"
@@ -683,6 +684,8 @@ def main() -> int:
         return 2
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_id = os.environ.get("RUN_ID") or f"APPB-{timestamp}"
+    os.environ["RUN_ID"] = run_id
     run_dir = TEST_ROOT / f"test_{timestamp}"
     screenshot_dir = run_dir / "screenshots"
     screenshot_dir.mkdir(parents=True, exist_ok=True)
@@ -692,6 +695,7 @@ def main() -> int:
     test_start = time.time()
     LOG.section("APPENDIX B — INTERACTIVE FAILURE AND RECOVERY TEST")
     LOG.info(f"Test ID: APPB-{timestamp}")
+    LOG.info(f"Pipeline RUN_ID: {run_id}")
     LOG.info(f"Project root: {PROJECT_ROOT}")
     LOG.info(f"Compose file: {compose_file.name}")
     LOG.info(f"Test output directory: {run_dir}")

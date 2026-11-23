@@ -134,12 +134,6 @@ Generate a single `RUN_ID` for the pipeline execution and start all 8 containers
   docker compose up -d --build
   ```
 
-* **Manual Startup (Linux / macOS):**
-  ```bash
-  export RUN_ID="RUN-$(date +%Y%m%d-%H%M%S)"
-  docker compose up -d --build
-  ```
-
 **Step 3: Inspect Operational Logs & Dashboards**
 Once the containers are running, engineers can verify pipeline execution through both structured logs and web dashboards:
 
@@ -170,7 +164,7 @@ python run_failure_recovery_test.py
 To stop the services and clear the Docker volumes before a fresh run, execute:
 
 ```bash
-docker compose down -v
+$env:RUN_ID="RUN-STOP"; docker compose down -v; Remove-Item Env:RUN_ID -ErrorAction SilentlyContinue
 ```
 
 ## Normal Operation Execution Trace
